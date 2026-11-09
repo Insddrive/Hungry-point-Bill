@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -82,8 +81,9 @@
     /**************************************************************
      * TVS RP-3200 LITE 3-INCH (80mm) ULTRA-CLEAN THERMAL PRINT
      * - Shifted right (padding-left: 7mm) so left text never clips
-     * - Generous tear space + bold dashed cut line between Slip 1 & Slip 2
-     *    PLUS page-break-after so both Tear-Bar and Auto-Cut printers work cleanly
+     * - No "₹" symbol on the printed slip (eliminates garbled glyph)
+     * - Quantity box right next to amount so maximum space remains for item name
+     * - Order # (1, 2, 3...) & [✓] PAID / [ ] PAID checkbox on every slip
      **************************************************************/
     #thermalPrintRoot {
       display: none;
@@ -422,7 +422,6 @@
     /**************************************************************
      * ITEM BOX MODEL
      * - taxable: ALWAYS true (5% GST) by default so no GST is ever lost!
-     *   Only becomes false (0%) if the user explicitly clicks the 5% button.
      * - qty: Number of units (default 1). Clicking + / - increments or decrements.
      **************************************************************/
     function createBlankItemBox() {
@@ -550,7 +549,6 @@
       } catch (e) {}
     }
 
-    // Normalize legacy saved items so any old auto-zeroed item (where manualTaxOverride was false) is restored to 5% GST
     function normalizeLoadedState(state) {
       if (!state || !Array.isArray(state.tabs)) return;
       state.tabs.forEach(tab => {
@@ -606,7 +604,6 @@
 
     /**************************************************************
      * EXACT POS GST, QUANTITY & ROUND-OFF CALCULATION
-     * Each item's line total = unit amount * qty
      **************************************************************/
     function getItemQty(item) {
       const q = parseInt(item?.qty, 10);
@@ -1143,17 +1140,18 @@
 
     /**************************************************************
      * ULTRA-MINIMAL 80mm THERMAL SLIP GENERATOR (2 SLIPS)
-     * - Shifted right (padding-left: 7mm) so left characters never clip
-     * - Shows unit quantity (e.g., 16 × ₹71 = ₹1136 and [×16] with item name)
-     * - Generous tear space + bold dashed cut line between Slip 1 & Slip 2
-     *   so you can easily tear it OR let the auto-cutter cut it.
+     * 1. Zero "₹" symbols on receipt (plain numbers only)
+     * 2. Quantity box [×4] right next to amount so full right space is open for item name / pen
+     * 3. Order Number (#1, #2, #3...) prominently at top
+     * 4. Small checkbox + PAID ([✓] PAID or [ ] PAID) at top right & bottom
      **************************************************************/
-    function buildMinimalSingleSlipHTML(order) {
+    function buildMinimalSingleSlipHTML(order, orderNum) {
       const totals = calculateOrderTotals(order);
       const customerName = (order.customerName || '').trim();
       const customerPhone = (order.customerPhone || '').trim();
       const timeStr = order.createdAt || formatTimeNow();
       const dateStr = order.createdDate || formatDateNow();
+      const isPaid = Boolean(order.isPaid);
 
       const validItems = (order.items || []).filter(item => {
         const val = parseFloat(item.amount);
@@ -1166,56 +1164,79 @@
         const lineAmt = (unitAmt * qty).toFixed(0);
         const itemName = (item.name || '').trim();
 
-        const leftPriceDisplay = qty > 1
-          ? `<div>₹${lineAmt}</div><div style="font-size: 11px; font-weight: 800;">(${qty}×₹${unitAmt.toFixed(0)})</div>`
-          : `<div>₹${lineAmt}</div>`;
+        const qtyBoxHTML = qty > 1
+          ? `<span style="display: inline-block; border: 1.5px solid #000; padding: 0 3px; font-size: 12px; font-weight: 900; line-height: 1.15;">×${qty}</span>`
+          : '';
 
-        const rightNameDisplay = qty > 1
-          ? `<span style="font-size: 15px; font-weight: 900; border: 1.5px solid #000; padding: 0 4px; margin-right: 4px;">×${qty}</span>${itemName ? escapeHtml(itemName) : ''}`
-          : (itemName ? escapeHtml(itemName) : '&nbsp;');
+        const unitBreakdownHTML = qty > 1
+          ? `<div style="font-size: 10px; font-weight: 700; margin-top: 1px;">(${qty}×${unitAmt.toFixed(0)})</div>`
+          : '';
 
         return `
           <div style="display: flex; align-items: baseline; padding: 5px 0; border-bottom: 1px dotted #000;">
-            <div style="width: 38%; font-size: 15px; font-weight: 900; text-align: left; padding-right: 6px; line-height: 1.2;">
-              ${leftPriceDisplay}
+            <!-- Left Side: Amount & Tightly Attached Qty Box -->
+            <div style="width: 31%; padding-right: 5px; line-height: 1.15;">
+              <div style="display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;">
+                <span style="font-size: 15px; font-weight: 900;">${lineAmt}</span>
+                ${qtyBoxHTML}
+              </div>
+              ${unitBreakdownHTML}
             </div>
-            <div style="width: 62%; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word;">
-              ${rightNameDisplay}
+
+            <!-- Right Side: Maximum Open Space for Item Name or Pen Writing -->
+            <div style="width: 69%; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word;">
+              ${itemName ? escapeHtml(itemName) : '&nbsp;'}
             </div>
           </div>
         `;
       }).join('');
 
+      const paidCheckboxHTML = `
+        <span style="display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 900;">
+          <span style="display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border: 2px solid #000; font-size: 12px; font-weight: 900; line-height: 1;">
+            ${isPaid ? '✓' : '&nbsp;'}
+          </span>
+          <span>PAID</span>
+        </span>
+      `;
+
       return `
         <div class="thermal-slip-page">
-          <!-- Date & Time -->
-          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; margin-bottom: 4px;">
+          <!-- Top Row: Big Order Number (#1, #2...) + Paid Checkbox + Date/Time -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
+            <span style="font-size: 18px; font-weight: 900; border: 2px solid #000; padding: 0 6px; line-height: 1.2;">
+              #${orderNum}
+            </span>
+            ${paidCheckboxHTML}
+          </div>
+
+          <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; margin-bottom: 4px;">
             <span>${escapeHtml(dateStr)}</span>
             <span>${escapeHtml(timeStr)}</span>
           </div>
 
           <!-- Customer Name & Phone -->
-          <div style="font-size: 14px; font-weight: 900; margin-bottom: 4px; line-height: 1.35;">
+          <div style="font-size: 14px; font-weight: 900; margin-bottom: 4px; line-height: 1.3;">
             ${customerName ? `<div>${escapeHtml(customerName)}</div>` : `<div style="border-bottom: 1px dotted #000; height: 18px; margin-bottom: 3px;"></div>`}
             ${customerPhone ? `<div style="font-size: 13px; font-weight: 800;">${escapeHtml(customerPhone)}</div>` : ''}
           </div>
 
           <div style="border-top: 2px solid #000; margin: 4px 0;"></div>
 
-          <!-- Left: Amount (& Qty) | Right: Qty + Item Name or Blank Space for Pen -->
+          <!-- Items List (Left: Amount + Qty | Right: Item Name or Blank Space) -->
           <div>
             ${itemsRowsHTML || `
               <div style="display: flex; align-items: baseline; padding: 6px 0; border-bottom: 1px dotted #000;">
-                <div style="width: 38%; font-size: 15px; font-weight: 900;">₹0</div>
-                <div style="width: 62%; min-height: 20px;">&nbsp;</div>
+                <div style="width: 31%; font-size: 15px; font-weight: 900;">0</div>
+                <div style="width: 69%; min-height: 20px;">&nbsp;</div>
               </div>
             `}
           </div>
 
-          <!-- Total Row -->
+          <!-- Total Row (No ₹ symbol) -->
           <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 17px; font-weight: 900; padding-top: 5px; margin-top: 2px; border-top: 2px solid #000;">
-            <span>₹${totals.grandTotal}</span>
-            <span style="font-size: 11px; font-weight: 700;">${totals.rawGst > 0 ? `(Sub ₹${totals.subtotal.toFixed(0)} + GST ₹${totals.rawGst.toFixed(1)})` : ''}</span>
+            <span>${totals.grandTotal}</span>
+            <span style="font-size: 11px; font-weight: 700;">${totals.rawGst > 0 ? `(Sub ${totals.subtotal.toFixed(0)} + GST ${totals.rawGst.toFixed(1)})` : ''}</span>
           </div>
         </div>
       `;
@@ -1224,10 +1245,12 @@
     function printOrderSlips(orderId) {
       const tab = getActiveTab();
       if (!tab) return;
-      const order = tab.orders.find(o => o.id === orderId);
-      if (!order) return;
+      const orderIndex = tab.orders.findIndex(o => o.id === orderId);
+      if (orderIndex === -1) return;
+      const order = tab.orders[orderIndex];
+      const orderNum = orderIndex + 1;
 
-      const slipHTML = buildMinimalSingleSlipHTML(order);
+      const slipHTML = buildMinimalSingleSlipHTML(order, orderNum);
       const tearDividerHTML = `
         <div class="thermal-tear-zone">
           <div class="thermal-tear-line"></div>
@@ -1236,7 +1259,6 @@
 
       const printRoot = document.getElementById('thermalPrintRoot');
       if (printRoot) {
-        // Two slips separated by a spacious tear zone + dashed cut line + page-break
         printRoot.innerHTML = slipHTML + tearDividerHTML + slipHTML;
       }
 
@@ -1296,7 +1318,7 @@
 
       return `
         <div id="item-box-${item.id}" class="shrink-0 w-[48%] sm:w-44 bg-white rounded-xl border-2 ${theme.boxBorder} p-1.5 shadow-2xs animate-pop flex flex-col justify-between">
-          <!-- Top Bar: # + Time + Line Total (when qty > 1) + 5%/0% Toggle + Clear -->
+          <!-- Top Bar: # + Line Total (when qty > 1) + 5%/0% Toggle + Clear -->
           <div class="flex items-center justify-between gap-1 mb-0.5">
             <div class="flex items-center gap-1 min-w-0">
               <span class="text-[10px] font-bold px-1 rounded ${theme.badge}">#${indexNumber}</span>
@@ -1339,7 +1361,7 @@
               />
             </div>
 
-            <!-- Quantity - / + Controls (tabindex -1 so Tab key still jumps straight to next box amount) -->
+            <!-- Quantity - / + Controls -->
             <div class="flex items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5 shrink-0">
               <button type="button"
                 tabindex="-1"
@@ -1361,7 +1383,7 @@
             </div>
           </div>
 
-          <!-- Bottom Strip: Item Name Input (tabindex -1 so Tab skips it) -->
+          <!-- Bottom Strip: Item Name Input -->
           <input
             id="item-name-${item.id}"
             type="text"
@@ -1382,7 +1404,7 @@
       if (!order) return;
       const idx = order.items.findIndex(i => i.id === itemId);
 
-      // Tab or Shift+Tab jumps strictly between Amount boxes (never into Item Name strip)
+      // Tab or Shift+Tab jumps strictly between Amount boxes
       if (event.key === 'Tab') {
         if (!event.shiftKey) {
           if (idx + 1 < order.items.length) {
@@ -1400,7 +1422,6 @@
         return;
       }
 
-      // Down arrow lets user quickly drop into Item Name if desired
       if (event.key === 'ArrowDown') {
         event.preventDefault();
         document.getElementById(`item-name-${itemId}`)?.focus();
@@ -1441,6 +1462,7 @@
     function buildSingleOrderFullHTML(order, orderIdx, theme) {
       const totals = calculateOrderTotals(order);
       const bwClass = order.isCompleted ? 'order-completed-bw' : '';
+      const isPaid = Boolean(order.isPaid);
 
       /**************************************************************
        * VIEW 1: MERGED STATE (ULTRA-COMPACT ON COMPUTER SO 5-6 FIT EASILY)
@@ -1448,7 +1470,6 @@
       if (order.isMerged) {
         const customerDisplay = order.customerName.trim() || `Order #${orderIdx + 1}`;
         const phoneDisplay = order.customerPhone.trim();
-        const isPaid = Boolean(order.isPaid);
         const isDelivered = Boolean(order.isCompleted);
 
         return `
@@ -1552,7 +1573,7 @@
       return `
         <div id="order-card-${order.id}" class="rounded-xl border-2 ${theme.border} ${theme.bg} px-2.5 py-2 sm:px-3 sm:py-2 shadow-2xs">
 
-          <!-- Top Bar: # + Name + Phone + Live Sub/GST/Total + Print + Delete -->
+          <!-- Top Bar: # + Name + Phone + Live Sub/GST/Total + Paid Checkbox + Print + Delete -->
           <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
             <span class="px-2 py-0.5 rounded-md text-xs font-bold ${theme.accent} shrink-0">
               #${orderIdx + 1}
@@ -1572,7 +1593,7 @@
               class="w-28 sm:w-32 px-2 py-0.5 bg-white rounded-md border border-slate-300 text-xs font-semibold font-mono-num text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900"
             />
 
-            <!-- Inline Live Sub / GST / Total Summary right in header bar to save vertical space -->
+            <!-- Inline Live Sub / GST / Total Summary right in header bar -->
             <div class="hidden lg:flex items-center gap-2.5 ml-2 text-[11px] font-mono-num text-slate-600">
               <span>Sub: <strong id="order-subtotal-${order.id}" class="text-slate-900">₹${totals.subtotal.toFixed(0)}</strong></span>
               <span>GST: <strong id="order-gst-${order.id}" class="text-slate-900">₹${totals.rawGst.toFixed(2)}</strong></span>
@@ -1583,6 +1604,21 @@
               <span class="text-[10px] font-mono-num text-slate-500 hidden sm:inline">
                 ${escapeHtml(order.createdAt)}
               </span>
+
+              <!-- Quick Paid Checkbox right on Open Card too (in case customer pays immediately before printing) -->
+              <button type="button" tabindex="-1" onclick="toggleOrderPaid(event, '${order.id}')"
+                title="Mark Paid if customer paid immediately"
+                class="px-2 py-0.5 rounded-md border flex items-center gap-1 text-xs font-bold cursor-pointer transition ${
+                  isPaid
+                    ? 'bg-emerald-600 text-white border-emerald-700'
+                    : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                }">
+                <span class="w-3.5 h-3.5 rounded-xs border flex items-center justify-center text-[10px] font-black ${
+                  isPaid ? 'bg-white text-emerald-700 border-white' : 'border-slate-400 text-transparent'
+                }">✓</span>
+                <span>Paid</span>
+              </button>
+
               <div class="bg-white px-2 py-0.5 rounded-md border border-slate-300 font-bold text-slate-900 text-xs font-mono-num">
                 Total: <span id="order-grand-${order.id}" class="font-extrabold">₹${totals.grandTotal}</span>
               </div>
