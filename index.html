@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -80,9 +81,9 @@
 
     /**************************************************************
      * TVS RP-3200 LITE 3-INCH (80mm) ULTRA-CLEAN THERMAL PRINT
-     * - Shifted right (padding-left: 7mm) so left text/phone/amount never clips
-     * - Page break after Slip 1 triggers hardware auto-cutter (2 separate cut slips)
-     * - Zero dashed tear line
+     * - Shifted right (padding-left: 7mm) so left text never clips
+     * - Generous tear space + bold dashed cut line between Slip 1 & Slip 2
+     *    PLUS page-break-after so both Tear-Bar and Auto-Cut printers work cleanly
      **************************************************************/
     #thermalPrintRoot {
       display: none;
@@ -119,13 +120,22 @@
       }
       .thermal-slip-page {
         width: 100% !important;
-        padding: 2mm 3mm 4mm 7mm !important;
+        padding: 2.5mm 3mm 4mm 7mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
       }
-      .thermal-page-cut {
+      .thermal-tear-zone {
+        width: 100% !important;
+        padding: 7mm 3mm 7mm 7mm !important;
+        box-sizing: border-box !important;
+        text-align: center !important;
         page-break-after: always !important;
         break-after: page !important;
+      }
+      .thermal-tear-line {
+        border-top: 2.5px dashed #000000 !important;
+        width: 100% !important;
+        height: 2px !important;
       }
     }
   </style>
@@ -376,8 +386,6 @@
     const DB_STORE = 'app_state_store';
     const DB_KEY = 'current_app_state';
 
-    const AUTO_ZERO_TAX_AMOUNTS = new Set([20, 35, 40, 60, 70, 105, 120, 140, 175, 180, 210, 240, 245, 280, 300, 315, 350]);
-
     let appState = {
       activeTabId: null,
       colorCounter: 0,
@@ -411,12 +419,19 @@
       });
     }
 
+    /**************************************************************
+     * ITEM BOX MODEL
+     * - taxable: ALWAYS true (5% GST) by default so no GST is ever lost!
+     *   Only becomes false (0%) if the user explicitly clicks the 5% button.
+     * - qty: Number of units (default 1). Clicking + / - increments or decrements.
+     **************************************************************/
     function createBlankItemBox() {
       return {
         id: uid(),
         amount: '',
+        qty: 1,
         name: '',
-        taxable: true,
+        taxable: true, // Always 5% GST unless manually clicked
         manualTaxOverride: false,
         time: formatTimeNow()
       };
@@ -535,6 +550,23 @@
       } catch (e) {}
     }
 
+    // Normalize legacy saved items so any old auto-zeroed item (where manualTaxOverride was false) is restored to 5% GST
+    function normalizeLoadedState(state) {
+      if (!state || !Array.isArray(state.tabs)) return;
+      state.tabs.forEach(tab => {
+        if (!Array.isArray(tab.orders)) return;
+        tab.orders.forEach(order => {
+          if (!Array.isArray(order.items)) return;
+          order.items.forEach(item => {
+            if (!item.qty || item.qty < 1) item.qty = 1;
+            if (!item.manualTaxOverride) {
+              item.taxable = true;
+            }
+          });
+        });
+      });
+    }
+
     async function loadState() {
       let loaded = null;
       try {
@@ -554,6 +586,7 @@
       }
 
       if (loaded && Array.isArray(loaded.tabs) && loaded.tabs.length > 0) {
+        normalizeLoadedState(loaded);
         appState = loaded;
         if (!appState.activeTabId || !appState.tabs.find(t => t.id === appState.activeTabId)) {
           appState.activeTabId = appState.tabs[0].id;
@@ -572,25 +605,35 @@
     }
 
     /**************************************************************
-     * EXACT POS GST & ROUND-OFF CALCULATION
+     * EXACT POS GST, QUANTITY & ROUND-OFF CALCULATION
+     * Each item's line total = unit amount * qty
      **************************************************************/
+    function getItemQty(item) {
+      const q = parseInt(item?.qty, 10);
+      return !isNaN(q) && q >= 1 ? q : 1;
+    }
+
     function calculateOrderTotals(order) {
       if (!order || !order.items) {
-        return { validCount: 0, subtotal: 0, taxableSubtotal: 0, rawGst: 0, roundOff: 0, grandTotal: 0 };
+        return { validCount: 0, totalUnits: 0, subtotal: 0, taxableSubtotal: 0, rawGst: 0, roundOff: 0, grandTotal: 0 };
       }
 
       let validCount = 0;
+      let totalUnits = 0;
       let subtotal = 0;
       let taxableSubtotal = 0;
 
       for (let i = 0; i < order.items.length; i++) {
         const item = order.items[i];
-        const val = parseFloat(item.amount);
-        if (!isNaN(val) && val > 0) {
+        const unitVal = parseFloat(item.amount);
+        if (!isNaN(unitVal) && unitVal > 0) {
+          const qty = getItemQty(item);
+          const lineTotal = unitVal * qty;
           validCount++;
-          subtotal += val;
+          totalUnits += qty;
+          subtotal += lineTotal;
           if (item.taxable !== false) {
-            taxableSubtotal += val;
+            taxableSubtotal += lineTotal;
           }
         }
       }
@@ -602,6 +645,7 @@
 
       return {
         validCount,
+        totalUnits,
         subtotal,
         taxableSubtotal,
         rawGst,
@@ -855,11 +899,6 @@
 
       const numericVal = parseFloat(rawValue);
 
-      if (!item.manualTaxOverride && !isNaN(numericVal) && numericVal > 0) {
-        item.taxable = !AUTO_ZERO_TAX_AMOUNTS.has(numericVal);
-        updateSingleTaxBadgeDOM(order.id, item);
-      }
-
       const isLastBox = itemIndex === order.items.length - 1;
       if (isLastBox && rawValue.trim() !== '' && !isNaN(numericVal)) {
         const nextBox = createBlankItemBox();
@@ -870,8 +909,51 @@
         saveState();
       }
 
+      updateSingleQtyAndLineTotalDOM(item);
       updateOrderLiveFooterDOM(order);
       updateTabSummaryStats(tab);
+    }
+
+    function changeItemQty(orderId, itemId, delta) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+
+      const item = order.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      const currentQty = getItemQty(item);
+      const nextQty = Math.max(1, currentQty + delta);
+      item.qty = nextQty;
+
+      saveState();
+      updateSingleQtyAndLineTotalDOM(item);
+      updateOrderLiveFooterDOM(order);
+      updateTabSummaryStats(tab);
+    }
+
+    function updateSingleQtyAndLineTotalDOM(item) {
+      const qty = getItemQty(item);
+      const qtyBadge = document.getElementById(`qty-badge-${item.id}`);
+      if (qtyBadge) {
+        qtyBadge.textContent = `×${qty}`;
+        qtyBadge.className = qty > 1
+          ? 'px-1.5 py-0.5 text-[11px] font-extrabold font-mono-num bg-indigo-600 text-white rounded select-none'
+          : 'px-1 py-0.5 text-[10px] font-bold font-mono-num text-slate-700 select-none';
+      }
+
+      const lineTotalEl = document.getElementById(`item-line-total-${item.id}`);
+      if (lineTotalEl) {
+        const unitVal = parseFloat(item.amount);
+        if (!isNaN(unitVal) && unitVal > 0 && qty > 1) {
+          lineTotalEl.textContent = `= ₹${(unitVal * qty).toFixed(0)}`;
+          lineTotalEl.classList.remove('hidden');
+        } else {
+          lineTotalEl.textContent = '';
+          lineTotalEl.classList.add('hidden');
+        }
+      }
     }
 
     function handleItemNameInput(orderId, itemId, value) {
@@ -933,6 +1015,7 @@
       const performClear = () => {
         if (order.items.length <= 1) {
           order.items[0].amount = '';
+          order.items[0].qty = 1;
           order.items[0].name = '';
           order.items[0].taxable = true;
           order.items[0].manualTaxOverride = false;
@@ -1059,12 +1142,13 @@
     }
 
     /**************************************************************
-     * ULTRA-MINIMAL 80mm THERMAL SLIP GENERATOR (2 AUTO-CUT SLIPS)
+     * ULTRA-MINIMAL 80mm THERMAL SLIP GENERATOR (2 SLIPS)
      * - Shifted right (padding-left: 7mm) so left characters never clip
-     * - Page break after Slip 1 triggers TVS RP-3200 hardware auto-cutter
-     * - Zero dashed tear line
+     * - Shows unit quantity (e.g., 16 × ₹71 = ₹1136 and [×16] with item name)
+     * - Generous tear space + bold dashed cut line between Slip 1 & Slip 2
+     *   so you can easily tear it OR let the auto-cutter cut it.
      **************************************************************/
-    function buildMinimalSingleSlipHTML(order, isFirstSlip = false) {
+    function buildMinimalSingleSlipHTML(order) {
       const totals = calculateOrderTotals(order);
       const customerName = (order.customerName || '').trim();
       const customerPhone = (order.customerPhone || '').trim();
@@ -1077,24 +1161,33 @@
       });
 
       const itemsRowsHTML = validItems.map(item => {
-        const amt = parseFloat(item.amount).toFixed(0);
+        const unitAmt = parseFloat(item.amount);
+        const qty = getItemQty(item);
+        const lineAmt = (unitAmt * qty).toFixed(0);
         const itemName = (item.name || '').trim();
+
+        const leftPriceDisplay = qty > 1
+          ? `<div>₹${lineAmt}</div><div style="font-size: 11px; font-weight: 800;">(${qty}×₹${unitAmt.toFixed(0)})</div>`
+          : `<div>₹${lineAmt}</div>`;
+
+        const rightNameDisplay = qty > 1
+          ? `<span style="font-size: 15px; font-weight: 900; border: 1.5px solid #000; padding: 0 4px; margin-right: 4px;">×${qty}</span>${itemName ? escapeHtml(itemName) : ''}`
+          : (itemName ? escapeHtml(itemName) : '&nbsp;');
+
         return `
           <div style="display: flex; align-items: baseline; padding: 5px 0; border-bottom: 1px dotted #000;">
-            <div style="width: 34%; font-size: 16px; font-weight: 900; text-align: left; padding-right: 6px;">
-              ₹${amt}
+            <div style="width: 38%; font-size: 15px; font-weight: 900; text-align: left; padding-right: 6px; line-height: 1.2;">
+              ${leftPriceDisplay}
             </div>
-            <div style="width: 66%; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word;">
-              ${itemName ? escapeHtml(itemName) : '&nbsp;'}
+            <div style="width: 62%; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word;">
+              ${rightNameDisplay}
             </div>
           </div>
         `;
       }).join('');
 
-      const cutClass = isFirstSlip ? 'thermal-slip-page thermal-page-cut' : 'thermal-slip-page';
-
       return `
-        <div class="${cutClass}">
+        <div class="thermal-slip-page">
           <!-- Date & Time -->
           <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; margin-bottom: 4px;">
             <span>${escapeHtml(dateStr)}</span>
@@ -1109,12 +1202,12 @@
 
           <div style="border-top: 2px solid #000; margin: 4px 0;"></div>
 
-          <!-- Left: Amount | Right: Item Name or Blank Space for Pen -->
+          <!-- Left: Amount (& Qty) | Right: Qty + Item Name or Blank Space for Pen -->
           <div>
             ${itemsRowsHTML || `
               <div style="display: flex; align-items: baseline; padding: 6px 0; border-bottom: 1px dotted #000;">
-                <div style="width: 34%; font-size: 16px; font-weight: 900;">₹0</div>
-                <div style="width: 66%; min-height: 20px;">&nbsp;</div>
+                <div style="width: 38%; font-size: 15px; font-weight: 900;">₹0</div>
+                <div style="width: 62%; min-height: 20px;">&nbsp;</div>
               </div>
             `}
           </div>
@@ -1134,12 +1227,17 @@
       const order = tab.orders.find(o => o.id === orderId);
       if (!order) return;
 
-      const slip1 = buildMinimalSingleSlipHTML(order, true);
-      const slip2 = buildMinimalSingleSlipHTML(order, false);
+      const slipHTML = buildMinimalSingleSlipHTML(order);
+      const tearDividerHTML = `
+        <div class="thermal-tear-zone">
+          <div class="thermal-tear-line"></div>
+        </div>
+      `;
+
       const printRoot = document.getElementById('thermalPrintRoot');
       if (printRoot) {
-        // Two separate pages so the thermal printer driver executes hardware auto-cut after each slip
-        printRoot.innerHTML = slip1 + slip2;
+        // Two slips separated by a spacious tear zone + dashed cut line + page-break
+        printRoot.innerHTML = slipHTML + tearDividerHTML + slipHTML;
       }
 
       window.print();
@@ -1184,24 +1282,34 @@
 
     function buildSingleItemBoxHTML(order, item, indexNumber, theme) {
       const isTaxable = item.taxable !== false;
+      const qty = getItemQty(item);
+      const unitVal = parseFloat(item.amount);
+      const showLineTotal = !isNaN(unitVal) && unitVal > 0 && qty > 1;
+
       const taxPillClass = isTaxable
         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
         : 'bg-slate-200 text-slate-600 border-slate-300';
 
+      const qtyBadgeClass = qty > 1
+        ? 'px-1.5 py-0.5 text-[11px] font-extrabold font-mono-num bg-indigo-600 text-white rounded select-none'
+        : 'px-1 py-0.5 text-[10px] font-bold font-mono-num text-slate-700 select-none';
+
       return `
-        <div id="item-box-${item.id}" class="shrink-0 w-[47%] sm:w-32 bg-white rounded-xl border-2 ${theme.boxBorder} p-1.5 shadow-2xs animate-pop flex flex-col justify-between">
-          <!-- Top Bar: # + Time + 5%/0% Toggle + Clear (tabindex -1 so Tab jumps straight to next box amount) -->
+        <div id="item-box-${item.id}" class="shrink-0 w-[48%] sm:w-44 bg-white rounded-xl border-2 ${theme.boxBorder} p-1.5 shadow-2xs animate-pop flex flex-col justify-between">
+          <!-- Top Bar: # + Time + Line Total (when qty > 1) + 5%/0% Toggle + Clear -->
           <div class="flex items-center justify-between gap-1 mb-0.5">
             <div class="flex items-center gap-1 min-w-0">
               <span class="text-[10px] font-bold px-1 rounded ${theme.badge}">#${indexNumber}</span>
-              <span class="text-[9px] text-slate-400 font-mono-num truncate">${escapeHtml(item.time || '')}</span>
+              <span id="item-line-total-${item.id}" class="${showLineTotal ? '' : 'hidden'} text-[10px] font-extrabold font-mono-num text-indigo-700 bg-indigo-50 px-1 rounded truncate">
+                ${showLineTotal ? `= ₹${(unitVal * qty).toFixed(0)}` : ''}
+              </span>
             </div>
             <div class="flex items-center gap-0.5 shrink-0">
               <button type="button"
                 tabindex="-1"
                 id="tax-btn-${item.id}"
                 onclick="toggleItemTaxable('${order.id}', '${item.id}')"
-                title="Toggle 5% GST vs 0% (Exempt / Beverage)"
+                title="5% GST (Default) — Click only if 0% tax exempt"
                 class="px-1 py-0.5 rounded text-[10px] font-bold font-mono-num border ${taxPillClass} cursor-pointer transition">
                 ${isTaxable ? '5%' : '0%'}
               </button>
@@ -1214,23 +1322,46 @@
             </div>
           </div>
 
-          <!-- Amount Input (Tab key jumps directly to next box's Amount Input) -->
-          <div class="relative flex items-center">
-            <span class="absolute left-2 text-slate-400 font-bold text-xs select-none pointer-events-none">₹</span>
-            <input
-              id="item-input-${item.id}"
-              type="number"
-              inputmode="decimal"
-              step="any"
-              placeholder="0"
-              value="${escapeHtml(String(item.amount ?? ''))}"
-              oninput="handleItemAmountInput('${order.id}', '${item.id}', this.value)"
-              onkeydown="handleItemAmountKeyDown(event, '${order.id}', '${item.id}')"
-              class="w-full pl-5 pr-1.5 py-1 bg-slate-50 focus:bg-white rounded-lg text-base font-bold text-slate-900 font-mono-num placeholder:text-slate-300 focus:outline-none"
-            />
+          <!-- Middle Row: Amount Input + (- / Qty / +) Counter right alongside -->
+          <div class="flex items-center gap-1">
+            <div class="relative flex items-center flex-1 min-w-0">
+              <span class="absolute left-1.5 text-slate-400 font-bold text-xs select-none pointer-events-none">₹</span>
+              <input
+                id="item-input-${item.id}"
+                type="number"
+                inputmode="decimal"
+                step="any"
+                placeholder="0"
+                value="${escapeHtml(String(item.amount ?? ''))}"
+                oninput="handleItemAmountInput('${order.id}', '${item.id}', this.value)"
+                onkeydown="handleItemAmountKeyDown(event, '${order.id}', '${item.id}')"
+                class="w-full pl-4 pr-1 py-1 bg-slate-50 focus:bg-white rounded-lg text-base font-bold text-slate-900 font-mono-num placeholder:text-slate-300 focus:outline-none"
+              />
+            </div>
+
+            <!-- Quantity - / + Controls (tabindex -1 so Tab key still jumps straight to next box amount) -->
+            <div class="flex items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5 shrink-0">
+              <button type="button"
+                tabindex="-1"
+                onclick="changeItemQty('${order.id}', '${item.id}', -1)"
+                title="Decrease Quantity (-)"
+                class="w-5 h-6 rounded bg-white hover:bg-rose-50 hover:text-rose-600 text-slate-700 font-extrabold text-xs flex items-center justify-center shadow-2xs active:scale-90 transition cursor-pointer">
+                −
+              </button>
+              <span id="qty-badge-${item.id}" class="${qtyBadgeClass}">
+                ×${qty}
+              </span>
+              <button type="button"
+                tabindex="-1"
+                onclick="changeItemQty('${order.id}', '${item.id}', 1)"
+                title="Increase Quantity (+)"
+                class="w-5 h-6 rounded bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 font-extrabold text-xs flex items-center justify-center shadow-2xs active:scale-90 transition cursor-pointer">
+                +
+              </button>
+            </div>
           </div>
 
-          <!-- Bottom Strip: Item Name Input (tabindex -1 so Tab skips it, click or press Down Arrow to type name) -->
+          <!-- Bottom Strip: Item Name Input (tabindex -1 so Tab skips it) -->
           <input
             id="item-name-${item.id}"
             type="text"
@@ -1333,7 +1464,7 @@
               <!-- Left: Order # + Customer Name + Phone + Merged Count Badge -->
               <div class="flex items-center gap-2.5 min-w-0 flex-1">
                 <span class="px-2 py-0.5 rounded-md text-xs font-extrabold uppercase bg-white/25 text-white border border-white/40 font-mono-num shrink-0">
-                  #${orderIdx + 1} • ${totals.validCount} ${totals.validCount === 1 ? 'Item' : 'Items'}
+                  #${orderIdx + 1} • ${totals.totalUnits} ${totals.totalUnits === 1 ? 'Qty' : 'Qty'}
                 </span>
                 <div class="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
                   <span class="text-sm sm:text-base font-extrabold text-white truncate ${isDelivered ? 'line-through opacity-85' : ''}">
@@ -1473,7 +1604,7 @@
             ${itemsBoxesHTML}
 
             <!-- Save / Merge Button Box -->
-            <div id="save-btn-wrapper-${order.id}" class="shrink-0 w-[47%] sm:w-28 flex">
+            <div id="save-btn-wrapper-${order.id}" class="shrink-0 w-[48%] sm:w-28 flex">
               <button type="button" onclick="mergeCustomerOrder('${order.id}')"
                 class="w-full rounded-xl ${theme.accent} hover:opacity-95 active:scale-95 transition flex flex-col items-center justify-center p-1.5 shadow-2xs cursor-pointer">
                 <span class="text-[11px] font-bold uppercase tracking-wider">Save</span>
