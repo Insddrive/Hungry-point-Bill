@@ -11,20 +11,24 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <!-- Standard Android System Font: Roboto (Plain Open Zero "0" without any dot or slash) -->
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&display=swap" rel="stylesheet">
   <style>
     * {
       box-sizing: border-box;
       -webkit-tap-highlight-color: transparent;
+      font-family: 'Roboto', Arial, Helvetica, sans-serif !important;
+      font-variant-numeric: tabular-nums;
     }
     body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-family: 'Roboto', Arial, Helvetica, sans-serif !important;
       background-color: #f8fafc;
       color: #0f172a;
       overflow-x: hidden;
     }
     .font-mono-num {
-      font-family: 'JetBrains Mono', monospace;
+      font-family: 'Roboto', Arial, Helvetica, sans-serif !important;
+      font-variant-numeric: tabular-nums;
     }
     input[type=number]::-webkit-inner-spin-button,
     input[type=number]::-webkit-outer-spin-button {
@@ -80,6 +84,7 @@
 
     /**************************************************************
      * TVS RP-3200 LITE 3-INCH (80mm) ULTRA-CLEAN THERMAL PRINT
+     * - Uses clean Android Roboto / Arial font (Plain Open "0", no dot inside zero!)
      * - Fires TWO separate print jobs so the printer's auto-cutter
      *   blade physically cuts Slip 1 and Slip 2 into 2 separate pieces!
      * - Shifted right (padding-left: 7mm) so left text never clips
@@ -117,7 +122,7 @@
         padding: 0 !important;
         background: #ffffff !important;
         color: #000000 !important;
-        font-family: 'JetBrains Mono', Courier, monospace !important;
+        font-family: 'Roboto', Arial, Helvetica, sans-serif !important;
       }
       .thermal-slip-page {
         width: 100% !important;
@@ -279,100 +284,99 @@
   <script>
     /**************************************************************
      * COMPLETE STRUCTURED MENU CATALOG WITH CATEGORIES & RATES
-     * Supports:
-     * 1. Rate -> Items lookup with Category Filter Pills (e.g., 105 -> Shake's, Mojito, Mini Pizza...)
-     * 2. Word / Name search (e.g. typing "coffee" -> Hot Coffee 67, Cold Coffee 105) with auto-rate fill!
+     * Note: Category names use clean strings without apostrophes
+     * so category filter buttons work 100% reliably on every click!
      **************************************************************/
     const MENU_CATALOG = [
       // PIZZAS (Regular / Medium / Large / Giant)
-      { name: 'Single Cheese Pizza (Regular)', price: 110, category: "Pizza's" },
-      { name: 'Single Cheese Pizza (Medium)', price: 219, category: "Pizza's" },
-      { name: 'Single Cheese Pizza (Large)', price: 338, category: "Pizza's" },
-      { name: 'Single Cheese Pizza (Giant)', price: 457, category: "Pizza's" },
+      { name: 'Single Cheese Pizza (Regular)', price: 110, category: 'Pizza' },
+      { name: 'Single Cheese Pizza (Medium)', price: 219, category: 'Pizza' },
+      { name: 'Single Cheese Pizza (Large)', price: 338, category: 'Pizza' },
+      { name: 'Single Cheese Pizza (Giant)', price: 457, category: 'Pizza' },
 
-      { name: 'Double Cheese Pizza (Regular)', price: 138, category: "Pizza's" },
-      { name: 'Cheese & Mushroom Pizza (Regular)', price: 138, category: "Pizza's" },
-      { name: 'Cheese & Corn Pizza (Regular)', price: 138, category: "Pizza's" },
-      { name: 'Cheese & Tomato Pizza (Regular)', price: 138, category: "Pizza's" },
+      { name: 'Double Cheese Pizza (Regular)', price: 138, category: 'Pizza' },
+      { name: 'Cheese & Mushroom Pizza (Regular)', price: 138, category: 'Pizza' },
+      { name: 'Cheese & Corn Pizza (Regular)', price: 138, category: 'Pizza' },
+      { name: 'Cheese & Tomato Pizza (Regular)', price: 138, category: 'Pizza' },
 
-      { name: 'Double Cheese Pizza (Medium)', price: 267, category: "Pizza's" },
-      { name: 'Cheese & Mushroom Pizza (Medium)', price: 267, category: "Pizza's" },
-      { name: 'Cheese & Corn Pizza (Medium)', price: 267, category: "Pizza's" },
-      { name: 'Cheese & Tomato Pizza (Medium)', price: 267, category: "Pizza's" },
+      { name: 'Double Cheese Pizza (Medium)', price: 267, category: 'Pizza' },
+      { name: 'Cheese & Mushroom Pizza (Medium)', price: 267, category: 'Pizza' },
+      { name: 'Cheese & Corn Pizza (Medium)', price: 267, category: 'Pizza' },
+      { name: 'Cheese & Tomato Pizza (Medium)', price: 267, category: 'Pizza' },
 
-      { name: 'Double Cheese Pizza (Large)', price: 381, category: "Pizza's" },
-      { name: 'Cheese & Mushroom Pizza (Large)', price: 381, category: "Pizza's" },
-      { name: 'Cheese & Corn Pizza (Large)', price: 381, category: "Pizza's" },
-      { name: 'Cheese & Tomato Pizza (Large)', price: 381, category: "Pizza's" },
+      { name: 'Double Cheese Pizza (Large)', price: 381, category: 'Pizza' },
+      { name: 'Cheese & Mushroom Pizza (Large)', price: 381, category: 'Pizza' },
+      { name: 'Cheese & Corn Pizza (Large)', price: 381, category: 'Pizza' },
+      { name: 'Cheese & Tomato Pizza (Large)', price: 381, category: 'Pizza' },
 
-      { name: 'Double Cheese Pizza (Giant)', price: 543, category: "Pizza's" },
-      { name: 'Cheese & Mushroom Pizza (Giant)', price: 543, category: "Pizza's" },
-      { name: 'Cheese & Corn Pizza (Giant)', price: 543, category: "Pizza's" },
-      { name: 'Cheese & Tomato Pizza (Giant)', price: 543, category: "Pizza's" },
+      { name: 'Double Cheese Pizza (Giant)', price: 543, category: 'Pizza' },
+      { name: 'Cheese & Mushroom Pizza (Giant)', price: 543, category: 'Pizza' },
+      { name: 'Cheese & Corn Pizza (Giant)', price: 543, category: 'Pizza' },
+      { name: 'Cheese & Tomato Pizza (Giant)', price: 543, category: 'Pizza' },
 
-      { name: 'Makhani Paneer Pizza (Regular)', price: 152, category: "Pizza's" },
-      { name: 'Tandoori Paneer Pizza (Regular)', price: 152, category: "Pizza's" },
-      { name: 'Achari Pizza (Regular)', price: 152, category: "Pizza's" },
-      { name: 'Farm Fresh Pizza (Regular)', price: 152, category: "Pizza's" },
-      { name: 'Delight Pizza (Regular)', price: 152, category: "Pizza's" },
+      { name: 'Makhani Paneer Pizza (Regular)', price: 152, category: 'Pizza' },
+      { name: 'Tandoori Paneer Pizza (Regular)', price: 152, category: 'Pizza' },
+      { name: 'Achari Pizza (Regular)', price: 152, category: 'Pizza' },
+      { name: 'Farm Fresh Pizza (Regular)', price: 152, category: 'Pizza' },
+      { name: 'Delight Pizza (Regular)', price: 152, category: 'Pizza' },
 
-      { name: 'Makhani Paneer Pizza (Medium)', price: 333, category: "Pizza's" },
-      { name: 'Tandoori Paneer Pizza (Medium)', price: 333, category: "Pizza's" },
-      { name: 'Achari Pizza (Medium)', price: 333, category: "Pizza's" },
-      { name: 'Farm Fresh Pizza (Medium)', price: 333, category: "Pizza's" },
-      { name: 'Delight Pizza (Medium)', price: 333, category: "Pizza's" },
+      { name: 'Makhani Paneer Pizza (Medium)', price: 333, category: 'Pizza' },
+      { name: 'Tandoori Paneer Pizza (Medium)', price: 333, category: 'Pizza' },
+      { name: 'Achari Pizza (Medium)', price: 333, category: 'Pizza' },
+      { name: 'Farm Fresh Pizza (Medium)', price: 333, category: 'Pizza' },
+      { name: 'Delight Pizza (Medium)', price: 333, category: 'Pizza' },
 
-      { name: 'Makhani Paneer Pizza (Large)', price: 510, category: "Pizza's" },
-      { name: 'Tandoori Paneer Pizza (Large)', price: 510, category: "Pizza's" },
-      { name: 'Achari Pizza (Large)', price: 510, category: "Pizza's" },
-      { name: 'Farm Fresh Pizza (Large)', price: 510, category: "Pizza's" },
-      { name: 'Delight Pizza (Large)', price: 510, category: "Pizza's" },
+      { name: 'Makhani Paneer Pizza (Large)', price: 510, category: 'Pizza' },
+      { name: 'Tandoori Paneer Pizza (Large)', price: 510, category: 'Pizza' },
+      { name: 'Achari Pizza (Large)', price: 510, category: 'Pizza' },
+      { name: 'Farm Fresh Pizza (Large)', price: 510, category: 'Pizza' },
+      { name: 'Delight Pizza (Large)', price: 510, category: 'Pizza' },
 
-      { name: 'Makhani Paneer Pizza (Giant)', price: 681, category: "Pizza's" },
-      { name: 'Tandoori Paneer Pizza (Giant)', price: 681, category: "Pizza's" },
-      { name: 'Achari Pizza (Giant)', price: 681, category: "Pizza's" },
-      { name: 'Farm Fresh Pizza (Giant)', price: 681, category: "Pizza's" },
-      { name: 'Delight Pizza (Giant)', price: 681, category: "Pizza's" },
+      { name: 'Makhani Paneer Pizza (Giant)', price: 681, category: 'Pizza' },
+      { name: 'Tandoori Paneer Pizza (Giant)', price: 681, category: 'Pizza' },
+      { name: 'Achari Pizza (Giant)', price: 681, category: 'Pizza' },
+      { name: 'Farm Fresh Pizza (Giant)', price: 681, category: 'Pizza' },
+      { name: 'Delight Pizza (Giant)', price: 681, category: 'Pizza' },
 
-      { name: 'Mexican Pizza (Regular)', price: 181, category: "Pizza's" },
-      { name: 'Classic Pizza (Regular)', price: 181, category: "Pizza's" },
-      { name: 'Black & White Pizza (Regular)', price: 181, category: "Pizza's" },
-      { name: 'Spicy Paneer Pizza (Regular)', price: 181, category: "Pizza's" },
-      { name: 'Chilly Pizza (Regular)', price: 181, category: "Pizza's" },
+      { name: 'Mexican Pizza (Regular)', price: 181, category: 'Pizza' },
+      { name: 'Classic Pizza (Regular)', price: 181, category: 'Pizza' },
+      { name: 'Black & White Pizza (Regular)', price: 181, category: 'Pizza' },
+      { name: 'Spicy Paneer Pizza (Regular)', price: 181, category: 'Pizza' },
+      { name: 'Chilly Pizza (Regular)', price: 181, category: 'Pizza' },
 
-      { name: 'Mexican Pizza (Medium)', price: 395, category: "Pizza's" },
-      { name: 'Classic Pizza (Medium)', price: 395, category: "Pizza's" },
-      { name: 'Black & White Pizza (Medium)', price: 395, category: "Pizza's" },
-      { name: 'Spicy Paneer Pizza (Medium)', price: 395, category: "Pizza's" },
-      { name: 'Chilly Pizza (Medium)', price: 395, category: "Pizza's" },
+      { name: 'Mexican Pizza (Medium)', price: 395, category: 'Pizza' },
+      { name: 'Classic Pizza (Medium)', price: 395, category: 'Pizza' },
+      { name: 'Black & White Pizza (Medium)', price: 395, category: 'Pizza' },
+      { name: 'Spicy Paneer Pizza (Medium)', price: 395, category: 'Pizza' },
+      { name: 'Chilly Pizza (Medium)', price: 395, category: 'Pizza' },
 
-      { name: 'Mexican Pizza (Large)', price: 533, category: "Pizza's" },
-      { name: 'Classic Pizza (Large)', price: 533, category: "Pizza's" },
-      { name: 'Black & White Pizza (Large)', price: 533, category: "Pizza's" },
-      { name: 'Spicy Paneer Pizza (Large)', price: 533, category: "Pizza's" },
-      { name: 'Chilly Pizza (Large)', price: 533, category: "Pizza's" },
+      { name: 'Mexican Pizza (Large)', price: 533, category: 'Pizza' },
+      { name: 'Classic Pizza (Large)', price: 533, category: 'Pizza' },
+      { name: 'Black & White Pizza (Large)', price: 533, category: 'Pizza' },
+      { name: 'Spicy Paneer Pizza (Large)', price: 533, category: 'Pizza' },
+      { name: 'Chilly Pizza (Large)', price: 533, category: 'Pizza' },
 
-      { name: 'Mexican Pizza (Giant)', price: 800, category: "Pizza's" },
-      { name: 'Classic Pizza (Giant)', price: 800, category: "Pizza's" },
-      { name: 'Black & White Pizza (Giant)', price: 800, category: "Pizza's" },
-      { name: 'Spicy Paneer Pizza (Giant)', price: 800, category: "Pizza's" },
-      { name: 'Chilly Pizza (Giant)', price: 800, category: "Pizza's" },
+      { name: 'Mexican Pizza (Giant)', price: 800, category: 'Pizza' },
+      { name: 'Classic Pizza (Giant)', price: 800, category: 'Pizza' },
+      { name: 'Black & White Pizza (Giant)', price: 800, category: 'Pizza' },
+      { name: 'Spicy Paneer Pizza (Giant)', price: 800, category: 'Pizza' },
+      { name: 'Chilly Pizza (Giant)', price: 800, category: 'Pizza' },
 
-      { name: 'Mix Veg. Pizza (Regular)', price: 205, category: "Pizza's" },
-      { name: 'Veg. Supreme Pizza (Regular)', price: 205, category: "Pizza's" },
-      { name: 'Laden Pizza (Regular)', price: 205, category: "Pizza's" },
+      { name: 'Mix Veg. Pizza (Regular)', price: 205, category: 'Pizza' },
+      { name: 'Veg. Supreme Pizza (Regular)', price: 205, category: 'Pizza' },
+      { name: 'Laden Pizza (Regular)', price: 205, category: 'Pizza' },
 
-      { name: 'Mix Veg. Pizza (Medium)', price: 457, category: "Pizza's" },
-      { name: 'Veg. Supreme Pizza (Medium)', price: 457, category: "Pizza's" },
-      { name: 'Laden Pizza (Medium)', price: 457, category: "Pizza's" },
+      { name: 'Mix Veg. Pizza (Medium)', price: 457, category: 'Pizza' },
+      { name: 'Veg. Supreme Pizza (Medium)', price: 457, category: 'Pizza' },
+      { name: 'Laden Pizza (Medium)', price: 457, category: 'Pizza' },
 
-      { name: 'Mix Veg. Pizza (Large)', price: 576, category: "Pizza's" },
-      { name: 'Veg. Supreme Pizza (Large)', price: 576, category: "Pizza's" },
-      { name: 'Laden Pizza (Large)', price: 576, category: "Pizza's" },
+      { name: 'Mix Veg. Pizza (Large)', price: 576, category: 'Pizza' },
+      { name: 'Veg. Supreme Pizza (Large)', price: 576, category: 'Pizza' },
+      { name: 'Laden Pizza (Large)', price: 576, category: 'Pizza' },
 
-      { name: 'Mix Veg. Pizza (Giant)', price: 914, category: "Pizza's" },
-      { name: 'Veg. Supreme Pizza (Giant)', price: 914, category: "Pizza's" },
-      { name: 'Laden Pizza (Giant)', price: 914, category: "Pizza's" },
+      { name: 'Mix Veg. Pizza (Giant)', price: 914, category: 'Pizza' },
+      { name: 'Veg. Supreme Pizza (Giant)', price: 914, category: 'Pizza' },
+      { name: 'Laden Pizza (Giant)', price: 914, category: 'Pizza' },
 
       // MINI RANGE PIZZAS
       { name: 'Mini Soya Pizza', price: 65, category: 'Mini Pizza' },
@@ -391,22 +395,22 @@
       { name: 'Combo Any 4 Mini Double Topping Pizzas', price: 371, category: 'Mini Pizza' },
 
       // BURGERS & BURGER COMBOS
-      { name: 'Aloo Patty Burger', price: 45, category: "Burger's" },
-      { name: 'Veg Burger', price: 62, category: "Burger's" },
-      { name: 'Pub-Ji Burger', price: 71, category: "Burger's" },
-      { name: 'Cheesy Burger', price: 76, category: "Burger's" },
-      { name: 'Juicy Corn Burger', price: 81, category: "Burger's" },
-      { name: 'Mexican Burger', price: 86, category: "Burger's" },
-      { name: 'Paneer Burger', price: 100, category: "Burger's" },
-      { name: 'Supreme Burger', price: 114, category: "Burger's" },
-      { name: 'Aloo Patty Burger (Combo)', price: 129, category: "Burger's" },
-      { name: 'Veg Burger (Combo)', price: 148, category: "Burger's" },
-      { name: 'Pub-Ji Burger (Combo)', price: 157, category: "Burger's" },
-      { name: 'Cheesy Burger (Combo)', price: 162, category: "Burger's" },
-      { name: 'Juicy Corn Burger (Combo)', price: 167, category: "Burger's" },
-      { name: 'Mexican Burger (Combo)', price: 171, category: "Burger's" },
-      { name: 'Paneer Burger (Combo)', price: 181, category: "Burger's" },
-      { name: 'Supreme Burger (Combo)', price: 195, category: "Burger's" },
+      { name: 'Aloo Patty Burger', price: 45, category: 'Burger' },
+      { name: 'Veg Burger', price: 62, category: 'Burger' },
+      { name: 'Pub-Ji Burger', price: 71, category: 'Burger' },
+      { name: 'Cheesy Burger', price: 76, category: 'Burger' },
+      { name: 'Juicy Corn Burger', price: 81, category: 'Burger' },
+      { name: 'Mexican Burger', price: 86, category: 'Burger' },
+      { name: 'Paneer Burger', price: 100, category: 'Burger' },
+      { name: 'Supreme Burger', price: 114, category: 'Burger' },
+      { name: 'Aloo Patty Burger (Combo)', price: 129, category: 'Burger' },
+      { name: 'Veg Burger (Combo)', price: 148, category: 'Burger' },
+      { name: 'Pub-Ji Burger (Combo)', price: 157, category: 'Burger' },
+      { name: 'Cheesy Burger (Combo)', price: 162, category: 'Burger' },
+      { name: 'Juicy Corn Burger (Combo)', price: 167, category: 'Burger' },
+      { name: 'Mexican Burger (Combo)', price: 171, category: 'Burger' },
+      { name: 'Paneer Burger (Combo)', price: 181, category: 'Burger' },
+      { name: 'Supreme Burger (Combo)', price: 195, category: 'Burger' },
 
       // SANDWICHES
       { name: 'Cold Sandwich', price: 81, category: 'Sandwich' },
@@ -420,68 +424,68 @@
       { name: 'Paneer Salad', price: 138, category: 'Salad' },
       { name: 'Mexican Salad', price: 143, category: 'Salad' },
 
-      // PASTA'S
-      { name: 'Red Pasta', price: 114, category: "Pasta's" },
-      { name: 'White Pasta', price: 114, category: "Pasta's" },
-      { name: 'Tandoori Pasta', price: 124, category: "Pasta's" },
-      { name: 'Jumbo Pasta', price: 129, category: "Pasta's" },
-      { name: 'Makhni Pasta', price: 133, category: "Pasta's" },
-      { name: 'Sweet & Spicy Pasta', price: 138, category: "Pasta's" },
+      // PASTAS
+      { name: 'Red Pasta', price: 114, category: 'Pasta' },
+      { name: 'White Pasta', price: 114, category: 'Pasta' },
+      { name: 'Tandoori Pasta', price: 124, category: 'Pasta' },
+      { name: 'Jumbo Pasta', price: 129, category: 'Pasta' },
+      { name: 'Makhni Pasta', price: 133, category: 'Pasta' },
+      { name: 'Sweet & Spicy Pasta', price: 138, category: 'Pasta' },
 
-      // WRAP'S
-      { name: 'Aloo Tikki Wrap', price: 105, category: "Wrap's" },
-      { name: 'Cheesy Wrap', price: 114, category: "Wrap's" },
-      { name: 'Paneer Wrap', price: 124, category: "Wrap's" },
-      { name: 'Mexican Wrap', price: 124, category: "Wrap's" },
+      // WRAPS
+      { name: 'Aloo Tikki Wrap', price: 105, category: 'Wrap' },
+      { name: 'Cheesy Wrap', price: 114, category: 'Wrap' },
+      { name: 'Paneer Wrap', price: 124, category: 'Wrap' },
+      { name: 'Mexican Wrap', price: 124, category: 'Wrap' },
 
-      // BREAD'S, FRIES & SNACKS
-      { name: 'Garlic Bread', price: 100, category: 'Snacks & Bread' },
-      { name: 'Veg Loaded Garlic Bread', price: 129, category: 'Snacks & Bread' },
-      { name: 'Laden Garlic Bread', price: 143, category: 'Snacks & Bread' },
-      { name: 'Salted Fries', price: 81, category: 'Snacks & Bread' },
-      { name: 'Masala Fries', price: 90, category: 'Snacks & Bread' },
-      { name: 'Peri-Peri Fries', price: 90, category: 'Snacks & Bread' },
-      { name: 'Cheese Loaded Fries', price: 110, category: 'Snacks & Bread' },
-      { name: 'Potato Wedges', price: 119, category: 'Snacks & Bread' },
-      { name: 'Calzone', price: 129, category: 'Snacks & Bread' },
-      { name: 'Veg Pocket', price: 62, category: 'Snacks & Bread' },
-      { name: 'Paneer Pocket', price: 71, category: 'Snacks & Bread' },
-      { name: 'Veg Taco', price: 129, category: 'Snacks & Bread' },
+      // BREADS, FRIES & SNACKS
+      { name: 'Garlic Bread', price: 100, category: 'Snacks' },
+      { name: 'Veg Loaded Garlic Bread', price: 129, category: 'Snacks' },
+      { name: 'Laden Garlic Bread', price: 143, category: 'Snacks' },
+      { name: 'Salted Fries', price: 81, category: 'Snacks' },
+      { name: 'Masala Fries', price: 90, category: 'Snacks' },
+      { name: 'Peri-Peri Fries', price: 90, category: 'Snacks' },
+      { name: 'Cheese Loaded Fries', price: 110, category: 'Snacks' },
+      { name: 'Potato Wedges', price: 119, category: 'Snacks' },
+      { name: 'Calzone', price: 129, category: 'Snacks' },
+      { name: 'Veg Pocket', price: 62, category: 'Snacks' },
+      { name: 'Paneer Pocket', price: 71, category: 'Snacks' },
+      { name: 'Veg Taco', price: 129, category: 'Snacks' },
 
-      // DIP'S
-      { name: 'Cheesy Dip', price: 33, category: "Dip's" },
-      { name: 'Spicy Dip', price: 33, category: "Dip's" },
-      { name: 'Tandoori Dip', price: 33, category: "Dip's" },
+      // DIPS
+      { name: 'Cheesy Dip', price: 33, category: 'Dip' },
+      { name: 'Spicy Dip', price: 33, category: 'Dip' },
+      { name: 'Tandoori Dip', price: 33, category: 'Dip' },
 
-      // DESSERT'S
-      { name: 'Ice Cream Vanilla', price: 38, category: "Dessert's" },
-      { name: 'Ice Cream Vanilla (Chocolate)', price: 43, category: "Dessert's" },
-      { name: 'Ice Cream Vanilla (Strawberry)', price: 43, category: "Dessert's" },
-      { name: 'Ice Cream Vanilla (Butterscotch)', price: 43, category: "Dessert's" },
-      { name: 'Ice Cream Vanilla (Blue Berry)', price: 43, category: "Dessert's" },
-      { name: 'Chocolava Cake', price: 81, category: "Dessert's" },
-      { name: 'Chocolava Cake with Ice Cream', price: 100, category: "Dessert's" },
+      // DESSERTS
+      { name: 'Ice Cream Vanilla', price: 38, category: 'Dessert' },
+      { name: 'Ice Cream Vanilla (Chocolate)', price: 43, category: 'Dessert' },
+      { name: 'Ice Cream Vanilla (Strawberry)', price: 43, category: 'Dessert' },
+      { name: 'Ice Cream Vanilla (Butterscotch)', price: 43, category: 'Dessert' },
+      { name: 'Ice Cream Vanilla (Blue Berry)', price: 43, category: 'Dessert' },
+      { name: 'Chocolava Cake', price: 81, category: 'Dessert' },
+      { name: 'Chocolava Cake with Ice Cream', price: 100, category: 'Dessert' },
 
-      // SHAKE'S
-      { name: 'Strawberry Shake', price: 105, category: "Shake's" },
-      { name: 'Chocolate Shake', price: 105, category: "Shake's" },
-      { name: 'Vanilla Shake', price: 105, category: "Shake's" },
-      { name: 'Oreo Shake', price: 105, category: "Shake's" },
-      { name: 'Butter Scotch Shake', price: 105, category: "Shake's" },
-      { name: 'Blue Berry Shake', price: 105, category: "Shake's" },
-      { name: 'Kit Kat Shake', price: 105, category: "Shake's" },
+      // SHAKES
+      { name: 'Strawberry Shake', price: 105, category: 'Shake' },
+      { name: 'Chocolate Shake', price: 105, category: 'Shake' },
+      { name: 'Vanilla Shake', price: 105, category: 'Shake' },
+      { name: 'Oreo Shake', price: 105, category: 'Shake' },
+      { name: 'Butter Scotch Shake', price: 105, category: 'Shake' },
+      { name: 'Blue Berry Shake', price: 105, category: 'Shake' },
+      { name: 'Kit Kat Shake', price: 105, category: 'Shake' },
 
       // MOJITO
       { name: 'Mint Mojito', price: 105, category: 'Mojito' },
       { name: 'Water Melon Mojito', price: 105, category: 'Mojito' },
       { name: 'Blue Virgin Mojito', price: 105, category: 'Mojito' },
 
-      // DRINK'S
-      { name: 'Hot Tea', price: 48, category: "Drink's" },
-      { name: 'Hot Coffee', price: 67, category: "Drink's" },
-      { name: 'Cold Coffee', price: 105, category: "Drink's" },
-      { name: 'Fresh Lime Soda', price: 62, category: "Drink's" },
-      { name: 'Coke / Pepsi / Sprite / Dew', price: 33, category: "Drink's" }
+      // DRINKS
+      { name: 'Hot Tea', price: 48, category: 'Drink' },
+      { name: 'Hot Coffee', price: 67, category: 'Drink' },
+      { name: 'Cold Coffee', price: 105, category: 'Drink' },
+      { name: 'Fresh Lime Soda', price: 62, category: 'Drink' },
+      { name: 'Coke / Pepsi / Sprite / Dew', price: 33, category: 'Drink' }
     ];
 
     function getCatalogItemsByRate(rawAmount) {
@@ -652,7 +656,9 @@
       orderId: null,
       itemId: null,
       mode: 'rate', // 'rate' | 'search'
-      selectedCategory: 'ALL'
+      selectedCategory: 'ALL',
+      currentCategoriesList: ['ALL'],
+      currentFilteredList: []
     };
 
     function uid() {
@@ -1106,12 +1112,9 @@
 
     /**************************************************************
      * SMART ITEM MENU POPOVER (CATEGORY FILTER PILLS + KEYWORD SEARCH)
-     * 1. When rate is typed (e.g., 105), shows category pills at top:
-     *    [All] [Shake's] [Mojito] [Mini Pizza] [Sandwich] [Wrap's] [Drink's]
-     *    Clicking "Mojito" immediately hides Shake's and shows only Mojitos!
-     * 2. When word is typed in Item Name box (e.g., "coffee"), shows
-     *    matching items with their prices (Hot Coffee ₹67, Cold Coffee ₹105).
-     *    Selecting one fills BOTH Item Name and Rate automatically!
+     * - Uses numeric index `selectPopoverCategoryByIndex(idx)` so
+     *   clicking ANY category pill filters 100% reliably and hides all
+     *   other categories!
      **************************************************************/
     function openItemMenuPopover(orderId, itemId, mode = 'rate') {
       const tab = getActiveTab();
@@ -1125,7 +1128,6 @@
       popoverState.itemId = itemId;
       popoverState.mode = mode;
 
-      // Determine candidate items
       let candidates = [];
       if (mode === 'search') {
         const q = String(item.name || '').trim();
@@ -1160,20 +1162,27 @@
       const listEl = document.getElementById('popoverItemsList');
       if (!popover || !catBar || !listEl) return;
 
+      const allPills = ['ALL', ...categories];
+      popoverState.currentCategoriesList = allPills;
+
       // Show category filter pills if there are multiple categories
       if (categories.length > 1) {
         catBar.classList.remove('hidden');
         catBar.classList.add('flex');
-        const allPills = ['ALL', ...categories];
-        catBar.innerHTML = allPills.map(cat => {
+        catBar.innerHTML = allPills.map((cat, catIdx) => {
           const isSelected = popoverState.selectedCategory === cat;
-          const label = cat === 'ALL' ? `All (${candidates.length})` : cat;
+          const catCount = cat === 'ALL'
+            ? candidates.length
+            : candidates.filter(c => c.category === cat).length;
+          const label = cat === 'ALL' ? `All (${catCount})` : `${cat} (${catCount})`;
+
           return `
             <button type="button"
-              onmousedown="event.preventDefault(); selectPopoverCategory('${escapeHtml(cat)}')"
-              class="px-2 py-0.5 rounded-md text-[10px] font-extrabold transition cursor-pointer ${
+              onmousedown="event.preventDefault(); event.stopPropagation();"
+              onclick="selectPopoverCategoryByIndex(event, ${catIdx})"
+              class="px-2 py-1 rounded-md text-[11px] font-bold transition cursor-pointer select-none ${
                 isSelected
-                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  ? 'bg-indigo-600 text-white shadow-2xs ring-1 ring-indigo-700'
                   : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-200'
               }">
               ${escapeHtml(label)}
@@ -1190,36 +1199,41 @@
         ? candidates
         : candidates.filter(c => c.category === popoverState.selectedCategory);
 
+      popoverState.currentFilteredList = filteredCandidates;
+
       listEl.innerHTML = filteredCandidates.map((entry, idx) => {
         const isCurrent = item.name === entry.name && Math.round(parseFloat(item.amount || 0)) === entry.price;
         return `
           <button type="button"
-            onmousedown="event.preventDefault(); pickCatalogItemForBox('${order.id}', '${item.id}', ${idx})"
-            data-entry-name="${escapeHtml(entry.name)}"
-            data-entry-price="${entry.price}"
-            class="w-full px-2.5 py-1.5 text-left text-[11px] hover:bg-indigo-50 flex items-center justify-between gap-2 transition cursor-pointer ${
-              isCurrent ? 'bg-indigo-50/80 font-extrabold text-indigo-950' : 'font-semibold text-slate-800'
+            onmousedown="event.preventDefault(); event.stopPropagation();"
+            onclick="pickCatalogItemForBox(event, '${order.id}', '${item.id}', ${idx})"
+            class="w-full px-2.5 py-1.5 text-left text-xs hover:bg-indigo-50 flex items-center justify-between gap-2 transition cursor-pointer ${
+              isCurrent ? 'bg-indigo-50/90 font-bold text-indigo-950' : 'font-medium text-slate-800'
             }">
             <div class="min-w-0 flex-1">
               <div class="truncate">${escapeHtml(entry.name)}</div>
-              <div class="text-[9px] text-slate-400 font-medium">${escapeHtml(entry.category)}</div>
+              <div class="text-[10px] text-slate-400">${escapeHtml(entry.category)}</div>
             </div>
-            <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-mono-num text-[10px] font-extrabold shrink-0">
+            <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 text-[11px] font-bold shrink-0">
               ₹${entry.price}
             </span>
           </button>
         `;
       }).join('');
 
-      // Store current filtered list on popoverState for direct index lookup
-      popoverState.currentFilteredList = filteredCandidates;
       popoverState.isOpen = true;
       popover.classList.remove('hidden');
       popover.classList.add('flex');
     }
 
-    function selectPopoverCategory(cat) {
-      popoverState.selectedCategory = cat;
+    function selectPopoverCategoryByIndex(event, catIdx) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const chosenCat = popoverState.currentCategoriesList?.[catIdx] || 'ALL';
+      popoverState.selectedCategory = chosenCat;
+
       const tab = getActiveTab();
       const order = tab?.orders.find(o => o.id === popoverState.orderId);
       const item = order?.items.find(i => i.id === popoverState.itemId);
@@ -1234,7 +1248,11 @@
       renderPopoverContent(order, item, candidates, categories);
     }
 
-    function pickCatalogItemForBox(orderId, itemId, filteredIdx) {
+    function pickCatalogItemForBox(event, orderId, itemId, filteredIdx) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
       const entry = popoverState.currentFilteredList?.[filteredIdx];
       if (!entry) return;
 
@@ -1256,7 +1274,6 @@
       const amtInput = document.getElementById(`item-input-${item.id}`);
       if (amtInput) amtInput.value = String(entry.price);
 
-      // Update dropdown arrow badge visibility
       updateItemDropdownArrowDOM(order.id, item);
 
       // If this was the last box in the order, append a new blank box automatically
@@ -1307,7 +1324,7 @@
       popoverState.itemId = null;
     }
 
-    // Close popover when clicking outside or scrolling
+    // Close popover when clicking outside or scrolling the page (ignore scrolling inside popover list!)
     document.addEventListener('mousedown', (e) => {
       if (!popoverState.isOpen) return;
       const popover = document.getElementById('itemMenuPopover');
@@ -1319,10 +1336,11 @@
       closeItemMenuPopover();
     });
 
-    window.addEventListener('scroll', () => {
-      if (popoverState.isOpen && popoverState.itemId) {
-        positionPopoverUnderItemBox(popoverState.itemId);
-      }
+    window.addEventListener('scroll', (e) => {
+      if (!popoverState.isOpen || !popoverState.itemId) return;
+      const popover = document.getElementById('itemMenuPopover');
+      if (popover && popover.contains(e.target)) return;
+      positionPopoverUnderItemBox(popoverState.itemId);
     }, true);
 
     /**************************************************************
@@ -1406,12 +1424,10 @@
       } else {
         const matches = getCatalogItemsByRate(trimmed);
         if (matches.length === 1) {
-          // Single item at this price on poster -> auto-select it
           item.name = matches[0].name;
           if (nameInput) nameInput.value = item.name;
           closeItemMenuPopover();
         } else if (matches.length > 1) {
-          // Multiple items at this price -> clear mismatched name and open category-filtered popover
           if (!matches.some(m => m.name === item.name)) {
             item.name = '';
             if (nameInput) nameInput.value = '';
@@ -1419,7 +1435,6 @@
           popoverState.selectedCategory = 'ALL';
           openItemMenuPopover(orderId, itemId, 'rate');
         } else {
-          // Custom amount not on poster -> clear any previous poster item name
           if (MENU_CATALOG.some(m => m.name === item.name)) {
             item.name = '';
             if (nameInput) nameInput.value = '';
@@ -1466,7 +1481,6 @@
           closeItemMenuPopover();
         }
       } else {
-        // If user cleared the text input, show rate-based items if rate exists
         const rateMatches = getCatalogItemsByRate(item.amount);
         if (rateMatches.length > 0) {
           popoverState.selectedCategory = 'ALL';
@@ -1763,10 +1777,6 @@
 
     /**************************************************************
      * TWO SEPARATE AUTO-CUT SLIPS PRINTING ENGINE
-     * Because TVS RP-3200 driver triggers its physical blade at the
-     * end of each print job ("Cut at Job End"), firing two sequential
-     * `window.print()` jobs causes the printer blade to cut Slip 1
-     * completely, and then immediately print & cut Slip 2!
      **************************************************************/
     function printOrderSlips(orderId) {
       closeItemMenuPopover();
@@ -1892,7 +1902,7 @@
             ${paidCheckboxHTML}
           </div>
 
-          <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 800; margin-bottom: 4px;">
+          <div style="display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; margin-bottom: 4px;">
             <span>${escapeHtml(dateStr)}</span>
             <span>${escapeHtml(timeStr)}</span>
           </div>
@@ -1900,7 +1910,7 @@
           <!-- Customer Name & Phone -->
           <div style="font-size: 14px; font-weight: 900; margin-bottom: 4px; line-height: 1.3;">
             ${customerName ? `<div>${escapeHtml(customerName)}</div>` : `<div style="border-bottom: 1px dotted #000; height: 18px; margin-bottom: 3px;"></div>`}
-            ${customerPhone ? `<div style="font-size: 13px; font-weight: 800;">${escapeHtml(customerPhone)}</div>` : ''}
+            ${customerPhone ? `<div style="font-size: 13px; font-weight: 700;">${escapeHtml(customerPhone)}</div>` : ''}
           </div>
 
           <div style="border-top: 2px solid #000; margin: 4px 0;"></div>
@@ -2057,7 +2067,7 @@
               onfocus="handleItemNameFocus('${order.id}', '${item.id}')"
               oninput="handleItemNameInput('${order.id}', '${item.id}', this.value)"
               onkeydown="handleItemNameKeyDown(event, '${order.id}', '${item.id}')"
-              class="w-full pl-1.5 pr-6 py-0.5 rounded border text-[10px] font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:outline-none ${theme.itemStrip}"
+              class="w-full pl-1.5 pr-6 py-0.5 rounded border text-[11px] font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:outline-none ${theme.itemStrip}"
             />
             <button
               type="button"
@@ -2065,7 +2075,7 @@
               id="item-dd-btn-${item.id}"
               onclick="toggleItemDropdownBtn(event, '${order.id}', '${item.id}')"
               title="Pick from Menu"
-              class="${rateMatchesCount > 0 ? 'flex' : 'hidden'} absolute right-0.5 inset-y-0.5 px-1 rounded bg-indigo-100 text-indigo-800 hover:bg-indigo-200 items-center justify-center text-[9px] font-extrabold font-mono-num cursor-pointer">
+              class="${rateMatchesCount > 0 ? 'flex' : 'hidden'} absolute right-0.5 inset-y-0.5 px-1 rounded bg-indigo-100 text-indigo-800 hover:bg-indigo-200 items-center justify-center text-[10px] font-extrabold font-mono-num cursor-pointer">
               ${rateMatchesCount}▾
             </button>
           </div>
@@ -2135,12 +2145,11 @@
 
       if (event.key === 'Tab' || event.key === 'Enter') {
         event.preventDefault();
-        // If Enter is pressed while search popover has results and user hasn't picked a full item yet, pick the first match
         if (event.key === 'Enter' && popoverState.isOpen && popoverState.itemId === itemId && popoverState.currentFilteredList?.length > 0) {
           const currentItem = order.items[idx];
           const exactMatch = popoverState.currentFilteredList.some(e => e.name === currentItem.name);
           if (!exactMatch) {
-            pickCatalogItemForBox(orderId, itemId, 0);
+            pickCatalogItemForBox(null, orderId, itemId, 0);
             return;
           }
         }
