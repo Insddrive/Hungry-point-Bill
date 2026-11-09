@@ -1,0 +1,1704 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="QuickBill" />
+  <title>QuickBill</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #f8fafc;
+      color: #0f172a;
+      overflow-x: hidden;
+    }
+    .font-mono-num {
+      font-family: 'JetBrains Mono', monospace;
+    }
+    input[type=number]::-webkit-inner-spin-button,
+    input[type=number]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+    input[type=number] {
+      -moz-appearance: textfield;
+    }
+    .no-scrollbar::-webkit-scrollbar {
+      height: 4px;
+      width: 4px;
+    }
+    .no-scrollbar::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .no-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .order-completed-bw {
+      filter: grayscale(100%);
+      background-color: #e2e8f0 !important;
+      border-color: #94a3b8 !important;
+      color: #475569 !important;
+      opacity: 0.78;
+    }
+    /* Diagonal slanted line over total amount when Paid is checked */
+    .paid-diagonal-strike {
+      position: relative;
+      display: inline-block;
+    }
+    .paid-diagonal-strike::after {
+      content: "";
+      position: absolute;
+      left: -6%;
+      right: -6%;
+      top: 50%;
+      height: 3.5px;
+      background-color: #ffffff;
+      box-shadow: 0 0 0 1.5px rgba(15, 23, 42, 0.85);
+      transform: translateY(-50%) rotate(-18deg);
+      border-radius: 9999px;
+      pointer-events: none;
+    }
+    @keyframes popIn {
+      0% { opacity: 0; transform: scale(0.96); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    .animate-pop {
+      animation: popIn 0.12s ease-out forwards;
+    }
+
+    /**************************************************************
+     * TVS RP-3200 LITE 3-INCH (80mm) ULTRA-CLEAN THERMAL PRINT
+     * - Shifted right (padding-left: 7mm) so left text/phone/amount never clips
+     * - Page break after Slip 1 triggers hardware auto-cutter (2 separate cut slips)
+     * - Zero dashed tear line
+     **************************************************************/
+    #thermalPrintRoot {
+      display: none;
+    }
+    @media print {
+      @page {
+        size: 80mm auto;
+        margin: 0;
+      }
+      html, body {
+        width: 80mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+      }
+      body * {
+        visibility: hidden !important;
+      }
+      #thermalPrintRoot, #thermalPrintRoot * {
+        visibility: visible !important;
+      }
+      #thermalPrintRoot {
+        display: block !important;
+        position: absolute !important;
+        left: 0 !important;
+        top: 0 !important;
+        width: 78mm !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        color: #000000 !important;
+        font-family: 'JetBrains Mono', Courier, monospace !important;
+      }
+      .thermal-slip-page {
+        width: 100% !important;
+        padding: 2mm 3mm 4mm 7mm !important;
+        box-sizing: border-box !important;
+        page-break-inside: avoid !important;
+      }
+      .thermal-page-cut {
+        page-break-after: always !important;
+        break-after: page !important;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col selection:bg-slate-900 selection:text-white">
+
+  <!-- STICKY TOP HEADER (BOTH TAB BAR AND SEARCH/FILTER/PAID-TOTAL BAR STAY FIXED ON SCROLL) -->
+  <header class="sticky top-0 z-30 bg-white/95 backdrop-blur-xs border-b border-slate-200 shadow-xs">
+    <div class="max-w-7xl mx-auto px-2.5 sm:px-4">
+      
+      <!-- ROW 1: Tabs + Add Tab + "+Box" + "Clear All" (Compact on Mobile, Medium on Computer) -->
+      <div class="h-11 md:h-13 flex items-center justify-between gap-2 md:gap-4 border-b border-slate-100">
+        <!-- Left: Scrollable Tabs + Add Tab Button -->
+        <div class="flex items-center gap-1.5 md:gap-2 overflow-x-auto no-scrollbar py-1 flex-1">
+          <div id="tabsContainer" class="flex items-center gap-1 md:gap-1.5"></div>
+          <button onclick="addNewTab()" title="New Tab"
+            class="shrink-0 w-7 h-7 md:w-9 md:h-9 rounded-lg md:rounded-xl bg-slate-900 text-white hover:bg-slate-800 active:scale-95 transition flex items-center justify-center cursor-pointer shadow-2xs">
+            <svg class="w-4 h-4 md:w-4.5 md:h-4.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+        </div>
+
+        <!-- Right: PWA Install + "+Box" & "Clear All" -->
+        <div class="flex items-center gap-1.5 md:gap-2.5 shrink-0">
+          <button id="pwaInstallBtn" onclick="triggerPWAInstall()"
+            class="hidden px-2.5 py-1 md:px-3.5 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 transition items-center gap-1 cursor-pointer shadow-xs">
+            <span>📲</span>
+            <span>Install</span>
+          </button>
+          <button onclick="addCustomerToActiveTab(true)"
+            class="px-3 py-1 md:px-4 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-extrabold bg-indigo-600 text-white border-2 border-indigo-700 shadow-sm shadow-indigo-500/30 hover:bg-indigo-700 active:scale-95 transition flex items-center gap-1 cursor-pointer ring-2 ring-indigo-400/30">
+            <span class="text-sm md:text-base leading-none font-black">+</span> Box
+          </button>
+          <button onclick="promptMasterClear()"
+            class="px-2.5 py-1 md:px-3.5 md:py-2 rounded-lg md:rounded-xl text-xs md:text-sm font-semibold md:font-bold bg-rose-50 text-rose-700 border border-rose-200 hover:bg-rose-600 hover:text-white active:scale-95 transition cursor-pointer">
+            Clear All
+          </button>
+        </div>
+      </div>
+
+      <!-- ROW 2: Permanent Sticky Search + Filters (All/Active/Paid/Done) + Paid Orders Total -->
+      <div class="py-1.5 md:py-2 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-1.5 sm:gap-3">
+        <div class="flex items-center gap-1.5 sm:gap-2 flex-1">
+          <div class="relative flex-1">
+            <span class="absolute inset-y-0 left-2.5 flex items-center text-slate-400 pointer-events-none">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+            </span>
+            <input
+              id="searchInput"
+              type="text"
+              placeholder="Search name, phone, item or #..."
+              oninput="handleSearchInput(this.value)"
+              class="w-full pl-8 pr-7 py-1 bg-slate-100/80 focus:bg-white rounded-lg text-xs font-medium border border-slate-200 focus:border-slate-800 focus:outline-none transition"
+            />
+            <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-2 inset-y-0 text-slate-400 hover:text-slate-700 text-xs font-bold px-1">✕</button>
+          </div>
+
+          <!-- Filter Pills -->
+          <div class="flex items-center gap-1 shrink-0">
+            <button type="button" onclick="setStatusFilter('all')" id="filter-btn-all"
+              class="px-2 py-1 md:px-2.5 md:py-1 rounded-lg text-[11px] md:text-xs font-bold border transition bg-slate-900 text-white border-slate-900">
+              All
+            </button>
+            <button type="button" onclick="setStatusFilter('active')" id="filter-btn-active"
+              class="px-2 py-1 md:px-2.5 md:py-1 rounded-lg text-[11px] md:text-xs font-semibold border transition bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200">
+              Active
+            </button>
+            <button type="button" onclick="setStatusFilter('paid')" id="filter-btn-paid"
+              class="px-2 py-1 md:px-2.5 md:py-1 rounded-lg text-[11px] md:text-xs font-semibold border transition bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200">
+              Paid
+            </button>
+            <button type="button" onclick="setStatusFilter('completed')" id="filter-btn-completed"
+              class="px-2 py-1 md:px-2.5 md:py-1 rounded-lg text-[11px] md:text-xs font-semibold border transition bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200">
+              Done
+            </button>
+          </div>
+        </div>
+
+        <!-- Tab Statistics (Total ONLY adds up orders where PAID is checked) -->
+        <div class="flex items-center justify-between sm:justify-end gap-2 text-xs font-mono-num text-slate-500">
+          <span id="tabOrdersCountBadge" class="font-semibold text-slate-700">0 orders</span>
+          <span class="text-slate-300">•</span>
+          <span class="text-slate-600 font-semibold">Paid Total:</span>
+          <span id="tabGrandSumBadge" class="font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-xs md:text-sm">₹0</span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- MAIN WORKSPACE (COMPACT VERTICAL HEIGHT SO 4+ CARDS FIT ON COMPUTER SCREEN) -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-2.5 sm:px-4 py-2 flex flex-col gap-2 pb-16">
+    <!-- ORDERS CONTAINER (VIRTUAL CHUNKED RENDERING: NEVER CRASHES EVEN WITH 10,000+ ORDERS) -->
+    <div id="ordersListContainer" class="flex flex-col gap-2"></div>
+  </main>
+
+  <!-- YES / NO CONFIRMATION MODAL -->
+  <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-xl border border-slate-200 animate-pop text-center">
+      <h3 id="confirmModalTitle" class="text-sm font-bold text-slate-900">Confirm</h3>
+      <p id="confirmModalMessage" class="text-xs text-slate-600 mt-1.5 leading-relaxed">Are you sure?</p>
+      <div class="grid grid-cols-2 gap-2 mt-4">
+        <button onclick="closeConfirmModal()"
+          class="py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer">
+          No
+        </button>
+        <button id="confirmYesBtn"
+          class="py-2 rounded-xl text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition cursor-pointer">
+          Yes
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- HIDDEN ELEMENT USED EXCLUSIVELY FOR DIRECT 1-CLICK THERMAL PRINTING -->
+  <div id="thermalPrintRoot"></div>
+
+  <script>
+    /**************************************************************
+     * PWA MANIFEST & SERVICE WORKER REGISTRATION
+     **************************************************************/
+    let deferredInstallPrompt = null;
+
+    (function setupPWA() {
+      try {
+        if (window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+          const link = document.createElement('link');
+          link.rel = 'manifest';
+          link.href = 'manifest.json';
+          document.head.appendChild(link);
+
+          const appleIcon = document.createElement('link');
+          appleIcon.rel = 'apple-touch-icon';
+          appleIcon.href = 'icon-192.png';
+          document.head.appendChild(appleIcon);
+
+          if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+              navigator.serviceWorker.register('sw.js').catch(() => {});
+            });
+          }
+        }
+      } catch (e) {}
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const btn = document.getElementById('pwaInstallBtn');
+        if (btn) {
+          btn.classList.remove('hidden');
+          btn.classList.add('flex');
+        }
+      });
+
+      window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        const btn = document.getElementById('pwaInstallBtn');
+        if (btn) {
+          btn.classList.add('hidden');
+          btn.classList.remove('flex');
+        }
+      });
+    })();
+
+    async function triggerPWAInstall() {
+      if (!deferredInstallPrompt) return;
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      const btn = document.getElementById('pwaInstallBtn');
+      if (btn) {
+        btn.classList.add('hidden');
+        btn.classList.remove('flex');
+      }
+    }
+
+    /**************************************************************
+     * COLOR PALETTES FOR ORDER BLOCKS
+     **************************************************************/
+    const ORDER_THEMES = [
+      {
+        bg: 'bg-sky-50/90',
+        mergedBg: 'bg-sky-500 text-white border-sky-700 shadow-xs',
+        mergedTotalBox: 'bg-sky-700 text-white border-sky-300',
+        border: 'border-sky-400',
+        accent: 'bg-sky-600 text-white',
+        badge: 'bg-sky-100 text-sky-900 border-sky-300',
+        boxBorder: 'border-sky-300 focus-within:border-sky-600',
+        itemStrip: 'bg-sky-50/80 border-sky-200 focus:bg-white'
+      },
+      {
+        bg: 'bg-emerald-50/90',
+        mergedBg: 'bg-emerald-600 text-white border-emerald-800 shadow-xs',
+        mergedTotalBox: 'bg-emerald-800 text-white border-emerald-300',
+        border: 'border-emerald-400',
+        accent: 'bg-emerald-600 text-white',
+        badge: 'bg-emerald-100 text-emerald-900 border-emerald-300',
+        boxBorder: 'border-emerald-300 focus-within:border-emerald-600',
+        itemStrip: 'bg-emerald-50/80 border-emerald-200 focus:bg-white'
+      },
+      {
+        bg: 'bg-amber-50/90',
+        mergedBg: 'bg-amber-500 text-white border-amber-700 shadow-xs',
+        mergedTotalBox: 'bg-amber-700 text-white border-amber-200',
+        border: 'border-amber-400',
+        accent: 'bg-amber-600 text-white',
+        badge: 'bg-amber-100 text-amber-900 border-amber-300',
+        boxBorder: 'border-amber-300 focus-within:border-amber-600',
+        itemStrip: 'bg-amber-50/80 border-amber-200 focus:bg-white'
+      },
+      {
+        bg: 'bg-violet-50/90',
+        mergedBg: 'bg-violet-600 text-white border-violet-800 shadow-xs',
+        mergedTotalBox: 'bg-violet-800 text-white border-violet-300',
+        border: 'border-violet-400',
+        accent: 'bg-violet-600 text-white',
+        badge: 'bg-violet-100 text-violet-900 border-violet-300',
+        boxBorder: 'border-violet-300 focus-within:border-violet-600',
+        itemStrip: 'bg-violet-50/80 border-violet-200 focus:bg-white'
+      },
+      {
+        bg: 'bg-rose-50/90',
+        mergedBg: 'bg-rose-600 text-white border-rose-800 shadow-xs',
+        mergedTotalBox: 'bg-rose-800 text-white border-rose-300',
+        border: 'border-rose-400',
+        accent: 'bg-rose-600 text-white',
+        badge: 'bg-rose-100 text-rose-900 border-rose-300',
+        boxBorder: 'border-rose-300 focus-within:border-rose-600',
+        itemStrip: 'bg-rose-50/80 border-rose-200 focus:bg-white'
+      },
+      {
+        bg: 'bg-teal-50/90',
+        mergedBg: 'bg-teal-600 text-white border-teal-800 shadow-xs',
+        mergedTotalBox: 'bg-teal-800 text-white border-teal-300',
+        border: 'border-teal-400',
+        accent: 'bg-teal-600 text-white',
+        badge: 'bg-teal-100 text-teal-900 border-teal-300',
+        boxBorder: 'border-teal-300 focus-within:border-teal-600',
+        itemStrip: 'bg-teal-50/80 border-teal-200 focus:bg-white'
+      }
+    ];
+
+    const STORAGE_KEY = 'QUICKBILL_PWA_STATE_V2';
+    const DB_NAME = 'QuickBill_DB_v2';
+    const DB_STORE = 'app_state_store';
+    const DB_KEY = 'current_app_state';
+
+    const AUTO_ZERO_TAX_AMOUNTS = new Set([20, 35, 40, 60, 70, 105, 120, 140, 175, 180, 210, 240, 245, 280, 300, 315, 350]);
+
+    let appState = {
+      activeTabId: null,
+      colorCounter: 0,
+      tabs: []
+    };
+
+    // Virtualization / Chunk Rendering variables
+    const BATCH_SIZE = 30;
+    let visibleLimit = BATCH_SIZE;
+    let currentSearchQuery = '';
+    let currentStatusFilter = 'all'; // 'all' | 'active' | 'paid' | 'completed'
+    let intersectionObserver = null;
+
+    function uid() {
+      return 'id_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
+    }
+
+    function formatTimeNow() {
+      return new Date().toLocaleTimeString('en-US', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true
+      });
+    }
+
+    function formatDateNow() {
+      return new Date().toLocaleDateString('en-IN', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      });
+    }
+
+    function createBlankItemBox() {
+      return {
+        id: uid(),
+        amount: '',
+        name: '',
+        taxable: true,
+        manualTaxOverride: false,
+        time: formatTimeNow()
+      };
+    }
+
+    function createNewOrderBlock() {
+      const themeIndex = appState.colorCounter % ORDER_THEMES.length;
+      appState.colorCounter += 1;
+      return {
+        id: uid(),
+        customerName: '',
+        customerPhone: '',
+        createdAt: formatTimeNow(),
+        createdDate: formatDateNow(),
+        themeIndex: themeIndex,
+        isMerged: false,
+        isPaid: false,
+        isCompleted: false,
+        items: [createBlankItemBox()]
+      };
+    }
+
+    function createNewTabObject(name) {
+      return {
+        id: uid(),
+        name: name || `Tab ${appState.tabs.length + 1}`,
+        orders: [createNewOrderBlock()]
+      };
+    }
+
+    /**************************************************************
+     * ASYNCHRONOUS HIGH-CAPACITY STORAGE (INDEXEDDB + LOCALSTORAGE)
+     **************************************************************/
+    let dbPromise = null;
+
+    function getDB() {
+      if (!window.indexedDB) return Promise.resolve(null);
+      if (!dbPromise) {
+        dbPromise = new Promise((resolve) => {
+          try {
+            const req = indexedDB.open(DB_NAME, 1);
+            req.onupgradeneeded = (e) => {
+              const db = e.target.result;
+              if (!db.objectStoreNames.contains(DB_STORE)) {
+                db.createObjectStore(DB_STORE);
+              }
+            };
+            req.onsuccess = (e) => resolve(e.target.result);
+            req.onerror = () => resolve(null);
+          } catch (err) {
+            resolve(null);
+          }
+        });
+      }
+      return dbPromise;
+    }
+
+    async function saveStateToIndexedDB(state) {
+      try {
+        const db = await getDB();
+        if (!db) return false;
+        return new Promise((resolve) => {
+          const tx = db.transaction([DB_STORE], 'readwrite');
+          const store = tx.objectStore(DB_STORE);
+          const req = store.put(state, DB_KEY);
+          req.onsuccess = () => resolve(true);
+          req.onerror = () => resolve(false);
+        });
+      } catch (e) {
+        return false;
+      }
+    }
+
+    async function loadStateFromIndexedDB() {
+      try {
+        const db = await getDB();
+        if (!db) return null;
+        return new Promise((resolve) => {
+          const tx = db.transaction([DB_STORE], 'readonly');
+          const store = tx.objectStore(DB_STORE);
+          const req = store.get(DB_KEY);
+          req.onsuccess = (e) => resolve(e.target.result || null);
+          req.onerror = () => resolve(null);
+        });
+      } catch (e) {
+        return null;
+      }
+    }
+
+    let saveDebounceTimer = null;
+
+    function saveState(immediate = false) {
+      if (immediate) {
+        if (saveDebounceTimer) {
+          clearTimeout(saveDebounceTimer);
+          saveDebounceTimer = null;
+        }
+        executeSave();
+        return;
+      }
+      if (saveDebounceTimer) clearTimeout(saveDebounceTimer);
+      saveDebounceTimer = setTimeout(() => {
+        executeSave();
+      }, 250);
+    }
+
+    function executeSave() {
+      saveDebounceTimer = null;
+      saveStateToIndexedDB(appState);
+
+      try {
+        const jsonStr = JSON.stringify(appState);
+        if (jsonStr.length < 3500000) {
+          localStorage.setItem(STORAGE_KEY, jsonStr);
+        }
+      } catch (e) {}
+    }
+
+    async function loadState() {
+      let loaded = null;
+      try {
+        loaded = await loadStateFromIndexedDB();
+      } catch (e) {}
+
+      if (!loaded) {
+        try {
+          const raw = localStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            loaded = JSON.parse(raw);
+            if (loaded) {
+              saveStateToIndexedDB(loaded);
+            }
+          }
+        } catch (e) {}
+      }
+
+      if (loaded && Array.isArray(loaded.tabs) && loaded.tabs.length > 0) {
+        appState = loaded;
+        if (!appState.activeTabId || !appState.tabs.find(t => t.id === appState.activeTabId)) {
+          appState.activeTabId = appState.tabs[0].id;
+        }
+      } else {
+        appState.colorCounter = 0;
+        const firstTab = createNewTabObject('Tab 1');
+        appState.tabs = [firstTab];
+        appState.activeTabId = firstTab.id;
+        saveState(true);
+      }
+    }
+
+    function getActiveTab() {
+      return appState.tabs.find(t => t.id === appState.activeTabId) || appState.tabs[0];
+    }
+
+    /**************************************************************
+     * EXACT POS GST & ROUND-OFF CALCULATION
+     **************************************************************/
+    function calculateOrderTotals(order) {
+      if (!order || !order.items) {
+        return { validCount: 0, subtotal: 0, taxableSubtotal: 0, rawGst: 0, roundOff: 0, grandTotal: 0 };
+      }
+
+      let validCount = 0;
+      let subtotal = 0;
+      let taxableSubtotal = 0;
+
+      for (let i = 0; i < order.items.length; i++) {
+        const item = order.items[i];
+        const val = parseFloat(item.amount);
+        if (!isNaN(val) && val > 0) {
+          validCount++;
+          subtotal += val;
+          if (item.taxable !== false) {
+            taxableSubtotal += val;
+          }
+        }
+      }
+
+      const rawGst = taxableSubtotal * 0.05;
+      const exactTotal = subtotal + rawGst;
+      const grandTotal = Math.round(exactTotal);
+      const roundOff = grandTotal - exactTotal;
+
+      return {
+        validCount,
+        subtotal,
+        taxableSubtotal,
+        rawGst,
+        roundOff,
+        grandTotal
+      };
+    }
+
+    /**************************************************************
+     * CONFIRMATION MODAL
+     **************************************************************/
+    let pendingConfirmCallback = null;
+
+    function openConfirmModal(title, message, onYes) {
+      document.getElementById('confirmModalTitle').textContent = title;
+      document.getElementById('confirmModalMessage').textContent = message;
+      pendingConfirmCallback = onYes;
+      const modal = document.getElementById('confirmModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+
+    function closeConfirmModal() {
+      const modal = document.getElementById('confirmModal');
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      pendingConfirmCallback = null;
+    }
+
+    document.getElementById('confirmYesBtn').addEventListener('click', () => {
+      if (typeof pendingConfirmCallback === 'function') pendingConfirmCallback();
+      closeConfirmModal();
+    });
+
+    /**************************************************************
+     * TAB ACTIONS
+     **************************************************************/
+    function addNewTab() {
+      const nextNum = appState.tabs.length + 1;
+      const newTab = createNewTabObject(`Tab ${nextNum}`);
+      appState.tabs.push(newTab);
+      appState.activeTabId = newTab.id;
+      visibleLimit = BATCH_SIZE;
+      currentSearchQuery = '';
+      currentStatusFilter = 'all';
+      updateFilterButtonsUI();
+      saveState(true);
+      renderApp();
+      focusFirstEmptyInputInTab();
+    }
+
+    function switchTab(tabId) {
+      if (appState.activeTabId === tabId) return;
+      appState.activeTabId = tabId;
+      visibleLimit = BATCH_SIZE;
+      saveState(true);
+      renderApp();
+    }
+
+    function promptCloseTab(event, tabId) {
+      event.stopPropagation();
+      const targetTab = appState.tabs.find(t => t.id === tabId);
+      if (!targetTab) return;
+
+      openConfirmModal('Delete Tab?', `Delete "${targetTab.name}"?`, () => {
+        if (appState.tabs.length === 1) {
+          const fresh = createNewTabObject('Tab 1');
+          appState.tabs = [fresh];
+          appState.activeTabId = fresh.id;
+        } else {
+          const idx = appState.tabs.findIndex(t => t.id === tabId);
+          appState.tabs.splice(idx, 1);
+          if (appState.activeTabId === tabId) {
+            appState.activeTabId = appState.tabs[Math.max(0, idx - 1)].id;
+          }
+        }
+        visibleLimit = BATCH_SIZE;
+        saveState(true);
+        renderApp();
+      });
+    }
+
+    function promptMasterClear() {
+      openConfirmModal('Clear All?', 'Delete all tabs and orders?', () => {
+        appState.colorCounter = 0;
+        const freshTab = createNewTabObject('Tab 1');
+        appState.tabs = [freshTab];
+        appState.activeTabId = freshTab.id;
+        visibleLimit = BATCH_SIZE;
+        currentSearchQuery = '';
+        currentStatusFilter = 'all';
+        updateFilterButtonsUI();
+        saveState(true);
+        renderApp();
+        focusFirstEmptyInputInTab();
+      });
+    }
+
+    /**************************************************************
+     * SEARCH & FILTER LOGIC
+     **************************************************************/
+    let searchDebounceTimer = null;
+    function handleSearchInput(val) {
+      currentSearchQuery = val;
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (clearBtn) {
+        if (val.trim()) {
+          clearBtn.classList.remove('hidden');
+        } else {
+          clearBtn.classList.add('hidden');
+        }
+      }
+      if (searchDebounceTimer) clearTimeout(searchDebounceTimer);
+      searchDebounceTimer = setTimeout(() => {
+        visibleLimit = BATCH_SIZE;
+        renderOrdersList();
+      }, 100);
+    }
+
+    function clearSearch() {
+      currentSearchQuery = '';
+      currentStatusFilter = 'all';
+      const input = document.getElementById('searchInput');
+      if (input) input.value = '';
+      const clearBtn = document.getElementById('clearSearchBtn');
+      if (clearBtn) clearBtn.classList.add('hidden');
+      updateFilterButtonsUI();
+      visibleLimit = BATCH_SIZE;
+      renderOrdersList();
+    }
+
+    function setStatusFilter(filter) {
+      currentStatusFilter = filter;
+      updateFilterButtonsUI();
+      visibleLimit = BATCH_SIZE;
+      renderOrdersList();
+    }
+
+    function updateFilterButtonsUI() {
+      const filters = ['all', 'active', 'paid', 'completed'];
+      filters.forEach(f => {
+        const btn = document.getElementById(`filter-btn-${f}`);
+        if (!btn) return;
+        if (f === currentStatusFilter) {
+          btn.className = 'px-2 py-1 md:px-2.5 md:py-1 rounded-lg text-[11px] md:text-xs font-bold border transition bg-slate-900 text-white border-slate-900 shadow-2xs';
+        } else {
+          btn.className = 'px-2 py-1 md:px-2.5 md:py-1 rounded-lg text-[11px] md:text-xs font-semibold border transition bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200';
+        }
+      });
+    }
+
+    function getFilteredOrders(tab) {
+      if (!tab || !Array.isArray(tab.orders)) return [];
+      let list = tab.orders;
+
+      const q = currentSearchQuery.trim().toLowerCase();
+      if (q) {
+        list = list.filter((order, idx) => {
+          const name = (order.customerName || '').toLowerCase();
+          const phone = (order.customerPhone || '').toLowerCase();
+          const num = `#${idx + 1}`;
+          if (name.includes(q) || phone.includes(q) || num.includes(q)) return true;
+          return (order.items || []).some(item =>
+            (item.name || '').toLowerCase().includes(q) || String(item.amount || '').includes(q)
+          );
+        });
+      }
+
+      if (currentStatusFilter === 'active') {
+        list = list.filter(o => !o.isCompleted);
+      } else if (currentStatusFilter === 'paid') {
+        list = list.filter(o => o.isPaid);
+      } else if (currentStatusFilter === 'completed') {
+        list = list.filter(o => o.isCompleted);
+      }
+
+      return list;
+    }
+
+    /**************************************************************
+     * TAB SUMMARY STATS
+     * Total ONLY adds up orders where "Paid" is checked!
+     **************************************************************/
+    function updateTabSummaryStats(tab) {
+      const countEl = document.getElementById('tabOrdersCountBadge');
+      const sumEl = document.getElementById('tabGrandSumBadge');
+      if (!tab || !tab.orders) return;
+
+      const totalOrders = tab.orders.length;
+      let paidRevenue = 0;
+
+      for (let i = 0; i < totalOrders; i++) {
+        const o = tab.orders[i];
+        if (o.isPaid) {
+          const totals = calculateOrderTotals(o);
+          paidRevenue += totals.grandTotal;
+        }
+      }
+
+      if (countEl) countEl.textContent = `${totalOrders} ${totalOrders === 1 ? 'order' : 'orders'}`;
+      if (sumEl) sumEl.textContent = `₹${paidRevenue.toLocaleString('en-IN')}`;
+    }
+
+    /**************************************************************
+     * ORDER & BOX ACTIONS
+     **************************************************************/
+    function addCustomerToActiveTab(shouldFocus = true) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const newOrder = createNewOrderBlock();
+      tab.orders.push(newOrder);
+
+      if (currentSearchQuery || currentStatusFilter !== 'all') {
+        currentSearchQuery = '';
+        currentStatusFilter = 'all';
+        const sInput = document.getElementById('searchInput');
+        if (sInput) sInput.value = '';
+        const cBtn = document.getElementById('clearSearchBtn');
+        if (cBtn) cBtn.classList.add('hidden');
+        updateFilterButtonsUI();
+      }
+
+      visibleLimit = Math.max(visibleLimit, tab.orders.length);
+      saveState(true);
+      renderOrdersList();
+      renderTabsBar();
+
+      if (shouldFocus) {
+        setTimeout(() => {
+          const firstId = newOrder.items[0]?.id;
+          const el = document.getElementById(`item-input-${firstId}`);
+          if (el) {
+            el.focus();
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 40);
+      }
+    }
+
+    function handleItemAmountInput(orderId, itemId, rawValue) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+
+      const itemIndex = order.items.findIndex(i => i.id === itemId);
+      if (itemIndex === -1) return;
+
+      const item = order.items[itemIndex];
+      item.amount = rawValue;
+
+      const numericVal = parseFloat(rawValue);
+
+      if (!item.manualTaxOverride && !isNaN(numericVal) && numericVal > 0) {
+        item.taxable = !AUTO_ZERO_TAX_AMOUNTS.has(numericVal);
+        updateSingleTaxBadgeDOM(order.id, item);
+      }
+
+      const isLastBox = itemIndex === order.items.length - 1;
+      if (isLastBox && rawValue.trim() !== '' && !isNaN(numericVal)) {
+        const nextBox = createBlankItemBox();
+        order.items.push(nextBox);
+        saveState();
+        appendNewItemBoxToDOM(order, nextBox);
+      } else {
+        saveState();
+      }
+
+      updateOrderLiveFooterDOM(order);
+      updateTabSummaryStats(tab);
+    }
+
+    function handleItemNameInput(orderId, itemId, value) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+      const item = order.items.find(i => i.id === itemId);
+      if (!item) return;
+      item.name = value;
+      saveState();
+    }
+
+    function toggleItemTaxable(orderId, itemId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+      const item = order.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      item.taxable = item.taxable === false ? true : false;
+      item.manualTaxOverride = true;
+      saveState();
+
+      updateSingleTaxBadgeDOM(order.id, item);
+      updateOrderLiveFooterDOM(order);
+      updateTabSummaryStats(tab);
+    }
+
+    function updateSingleTaxBadgeDOM(orderId, item) {
+      const btn = document.getElementById(`tax-btn-${item.id}`);
+      if (!btn) return;
+      const isTaxable = item.taxable !== false;
+      btn.textContent = isTaxable ? '5%' : '0%';
+      btn.className = isTaxable
+        ? 'px-1 py-0.5 rounded text-[10px] font-bold font-mono-num bg-emerald-100 text-emerald-800 border border-emerald-300 cursor-pointer transition'
+        : 'px-1 py-0.5 rounded text-[10px] font-bold font-mono-num bg-slate-200 text-slate-600 border border-slate-300 cursor-pointer transition';
+    }
+
+    function handleCustomerMetaInput(orderId, field, value) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+      order[field] = value;
+      saveState();
+    }
+
+    function clearSingleItemBox(orderId, itemId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+      const item = order.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      const hasVal = String(item.amount).trim() !== '';
+      const performClear = () => {
+        if (order.items.length <= 1) {
+          order.items[0].amount = '';
+          order.items[0].name = '';
+          order.items[0].taxable = true;
+          order.items[0].manualTaxOverride = false;
+          order.items[0].time = formatTimeNow();
+        } else {
+          order.items = order.items.filter(i => i.id !== itemId);
+          const last = order.items[order.items.length - 1];
+          if (last && String(last.amount).trim() !== '') {
+            order.items.push(createBlankItemBox());
+          }
+        }
+        saveState(true);
+        updateSingleOrderCardDOM(orderId);
+      };
+
+      if (hasVal) {
+        openConfirmModal('Clear Box?', `Clear ₹${item.amount}?`, performClear);
+      } else {
+        performClear();
+      }
+    }
+
+    function promptDeleteCustomerOrder(orderId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      openConfirmModal('Delete Order?', 'Delete this customer box?', () => {
+        if (tab.orders.length <= 1) {
+          tab.orders = [createNewOrderBlock()];
+          visibleLimit = BATCH_SIZE;
+          renderApp();
+        } else {
+          tab.orders = tab.orders.filter(o => o.id !== orderId);
+          const cardEl = document.getElementById(`order-card-${orderId}`);
+          if (cardEl) cardEl.remove();
+          updateTabSummaryStats(tab);
+          renderTabsBar();
+        }
+        saveState(true);
+      });
+    }
+
+    function mergeCustomerOrder(orderId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const orderIndex = tab.orders.findIndex(o => o.id === orderId);
+      if (orderIndex === -1) return;
+      const order = tab.orders[orderIndex];
+
+      const filledItems = order.items.filter(i => String(i.amount).trim() !== '' && !isNaN(parseFloat(i.amount)));
+      if (filledItems.length === 0) {
+        const firstInput = document.getElementById(`item-input-${order.items[0]?.id}`);
+        if (firstInput) firstInput.focus();
+        return;
+      }
+
+      order.isMerged = true;
+
+      const hasUnmergedBelow = tab.orders.slice(orderIndex + 1).some(o => !o.isMerged && !o.isCompleted);
+      let newlyCreatedOrder = null;
+      if (!hasUnmergedBelow) {
+        newlyCreatedOrder = createNewOrderBlock();
+        tab.orders.push(newlyCreatedOrder);
+      }
+
+      saveState(true);
+      updateSingleOrderCardDOM(orderId);
+
+      if (newlyCreatedOrder) {
+        visibleLimit = Math.max(visibleLimit, tab.orders.length);
+        renderOrdersList();
+        if (newlyCreatedOrder.items[0]) {
+          setTimeout(() => {
+            const input = document.getElementById(`item-input-${newlyCreatedOrder.items[0].id}`);
+            if (input) {
+              input.focus();
+              input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+          }, 40);
+        }
+      }
+    }
+
+    function unmergeCustomerOrder(orderId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+
+      order.isMerged = false;
+      const lastItem = order.items[order.items.length - 1];
+      if (!lastItem || String(lastItem.amount).trim() !== '') {
+        order.items.push(createBlankItemBox());
+      }
+
+      saveState(true);
+      updateSingleOrderCardDOM(orderId);
+    }
+
+    function toggleOrderPaid(event, orderId) {
+      if (event) event.stopPropagation();
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      order.isPaid = !order.isPaid;
+      saveState(true);
+      updateSingleOrderCardDOM(orderId);
+    }
+
+    function toggleOrderCompleted(event, orderId) {
+      if (event) event.stopPropagation();
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      order.isCompleted = !order.isCompleted;
+      saveState(true);
+      updateSingleOrderCardDOM(orderId);
+    }
+
+    /**************************************************************
+     * ULTRA-MINIMAL 80mm THERMAL SLIP GENERATOR (2 AUTO-CUT SLIPS)
+     * - Shifted right (padding-left: 7mm) so left characters never clip
+     * - Page break after Slip 1 triggers TVS RP-3200 hardware auto-cutter
+     * - Zero dashed tear line
+     **************************************************************/
+    function buildMinimalSingleSlipHTML(order, isFirstSlip = false) {
+      const totals = calculateOrderTotals(order);
+      const customerName = (order.customerName || '').trim();
+      const customerPhone = (order.customerPhone || '').trim();
+      const timeStr = order.createdAt || formatTimeNow();
+      const dateStr = order.createdDate || formatDateNow();
+
+      const validItems = (order.items || []).filter(item => {
+        const val = parseFloat(item.amount);
+        return !isNaN(val) && val > 0;
+      });
+
+      const itemsRowsHTML = validItems.map(item => {
+        const amt = parseFloat(item.amount).toFixed(0);
+        const itemName = (item.name || '').trim();
+        return `
+          <div style="display: flex; align-items: baseline; padding: 5px 0; border-bottom: 1px dotted #000;">
+            <div style="width: 34%; font-size: 16px; font-weight: 900; text-align: left; padding-right: 6px;">
+              ₹${amt}
+            </div>
+            <div style="width: 66%; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word;">
+              ${itemName ? escapeHtml(itemName) : '&nbsp;'}
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      const cutClass = isFirstSlip ? 'thermal-slip-page thermal-page-cut' : 'thermal-slip-page';
+
+      return `
+        <div class="${cutClass}">
+          <!-- Date & Time -->
+          <div style="display: flex; justify-content: space-between; font-size: 12px; font-weight: 800; margin-bottom: 4px;">
+            <span>${escapeHtml(dateStr)}</span>
+            <span>${escapeHtml(timeStr)}</span>
+          </div>
+
+          <!-- Customer Name & Phone -->
+          <div style="font-size: 14px; font-weight: 900; margin-bottom: 4px; line-height: 1.35;">
+            ${customerName ? `<div>${escapeHtml(customerName)}</div>` : `<div style="border-bottom: 1px dotted #000; height: 18px; margin-bottom: 3px;"></div>`}
+            ${customerPhone ? `<div style="font-size: 13px; font-weight: 800;">${escapeHtml(customerPhone)}</div>` : ''}
+          </div>
+
+          <div style="border-top: 2px solid #000; margin: 4px 0;"></div>
+
+          <!-- Left: Amount | Right: Item Name or Blank Space for Pen -->
+          <div>
+            ${itemsRowsHTML || `
+              <div style="display: flex; align-items: baseline; padding: 6px 0; border-bottom: 1px dotted #000;">
+                <div style="width: 34%; font-size: 16px; font-weight: 900;">₹0</div>
+                <div style="width: 66%; min-height: 20px;">&nbsp;</div>
+              </div>
+            `}
+          </div>
+
+          <!-- Total Row -->
+          <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 17px; font-weight: 900; padding-top: 5px; margin-top: 2px; border-top: 2px solid #000;">
+            <span>₹${totals.grandTotal}</span>
+            <span style="font-size: 11px; font-weight: 700;">${totals.rawGst > 0 ? `(Sub ₹${totals.subtotal.toFixed(0)} + GST ₹${totals.rawGst.toFixed(1)})` : ''}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function printOrderSlips(orderId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      const slip1 = buildMinimalSingleSlipHTML(order, true);
+      const slip2 = buildMinimalSingleSlipHTML(order, false);
+      const printRoot = document.getElementById('thermalPrintRoot');
+      if (printRoot) {
+        // Two separate pages so the thermal printer driver executes hardware auto-cut after each slip
+        printRoot.innerHTML = slip1 + slip2;
+      }
+
+      window.print();
+    }
+
+    /**************************************************************
+     * DOM RENDERING & TARGETED CARD REPLACEMENT
+     **************************************************************/
+    function appendNewItemBoxToDOM(order, newBox) {
+      const rowContainer = document.getElementById(`items-row-${order.id}`);
+      const saveBtnWrapper = document.getElementById(`save-btn-wrapper-${order.id}`);
+      if (!rowContainer || !saveBtnWrapper) {
+        updateSingleOrderCardDOM(order.id);
+        return;
+      }
+      const theme = ORDER_THEMES[order.themeIndex % ORDER_THEMES.length];
+      const boxIndex = order.items.length;
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = buildSingleItemBoxHTML(order, newBox, boxIndex, theme);
+      if (tempDiv.firstElementChild) {
+        rowContainer.insertBefore(tempDiv.firstElementChild, saveBtnWrapper);
+      }
+    }
+
+    function updateOrderLiveFooterDOM(order) {
+      const totals = calculateOrderTotals(order);
+      const subEl = document.getElementById(`order-subtotal-${order.id}`);
+      const gstEl = document.getElementById(`order-gst-${order.id}`);
+      const roundEl = document.getElementById(`order-round-${order.id}`);
+      const grandEl = document.getElementById(`order-grand-${order.id}`);
+      const saveTotalEl = document.getElementById(`save-btn-total-${order.id}`);
+
+      if (subEl) subEl.textContent = `₹${totals.subtotal.toFixed(0)}`;
+      if (gstEl) gstEl.textContent = `₹${totals.rawGst.toFixed(2)}`;
+      if (roundEl) {
+        const sign = totals.roundOff >= 0 ? '+' : '';
+        roundEl.textContent = `${sign}${totals.roundOff.toFixed(2)}`;
+      }
+      if (grandEl) grandEl.textContent = `₹${totals.grandTotal}`;
+      if (saveTotalEl) saveTotalEl.textContent = `₹${totals.grandTotal}`;
+    }
+
+    function buildSingleItemBoxHTML(order, item, indexNumber, theme) {
+      const isTaxable = item.taxable !== false;
+      const taxPillClass = isTaxable
+        ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
+        : 'bg-slate-200 text-slate-600 border-slate-300';
+
+      return `
+        <div id="item-box-${item.id}" class="shrink-0 w-[47%] sm:w-32 bg-white rounded-xl border-2 ${theme.boxBorder} p-1.5 shadow-2xs animate-pop flex flex-col justify-between">
+          <!-- Top Bar: # + Time + 5%/0% Toggle + Clear (tabindex -1 so Tab jumps straight to next box amount) -->
+          <div class="flex items-center justify-between gap-1 mb-0.5">
+            <div class="flex items-center gap-1 min-w-0">
+              <span class="text-[10px] font-bold px-1 rounded ${theme.badge}">#${indexNumber}</span>
+              <span class="text-[9px] text-slate-400 font-mono-num truncate">${escapeHtml(item.time || '')}</span>
+            </div>
+            <div class="flex items-center gap-0.5 shrink-0">
+              <button type="button"
+                tabindex="-1"
+                id="tax-btn-${item.id}"
+                onclick="toggleItemTaxable('${order.id}', '${item.id}')"
+                title="Toggle 5% GST vs 0% (Exempt / Beverage)"
+                class="px-1 py-0.5 rounded text-[10px] font-bold font-mono-num border ${taxPillClass} cursor-pointer transition">
+                ${isTaxable ? '5%' : '0%'}
+              </button>
+              <button type="button"
+                tabindex="-1"
+                onclick="clearSingleItemBox('${order.id}', '${item.id}')"
+                class="w-4 h-4 rounded flex items-center justify-center text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer text-[11px]">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <!-- Amount Input (Tab key jumps directly to next box's Amount Input) -->
+          <div class="relative flex items-center">
+            <span class="absolute left-2 text-slate-400 font-bold text-xs select-none pointer-events-none">₹</span>
+            <input
+              id="item-input-${item.id}"
+              type="number"
+              inputmode="decimal"
+              step="any"
+              placeholder="0"
+              value="${escapeHtml(String(item.amount ?? ''))}"
+              oninput="handleItemAmountInput('${order.id}', '${item.id}', this.value)"
+              onkeydown="handleItemAmountKeyDown(event, '${order.id}', '${item.id}')"
+              class="w-full pl-5 pr-1.5 py-1 bg-slate-50 focus:bg-white rounded-lg text-base font-bold text-slate-900 font-mono-num placeholder:text-slate-300 focus:outline-none"
+            />
+          </div>
+
+          <!-- Bottom Strip: Item Name Input (tabindex -1 so Tab skips it, click or press Down Arrow to type name) -->
+          <input
+            id="item-name-${item.id}"
+            type="text"
+            tabindex="-1"
+            placeholder="Item name..."
+            value="${escapeHtml(String(item.name ?? ''))}"
+            oninput="handleItemNameInput('${order.id}', '${item.id}', this.value)"
+            onkeydown="handleItemNameKeyDown(event, '${order.id}', '${item.id}')"
+            class="mt-1 w-full px-1.5 py-0.5 rounded border text-[10px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none ${theme.itemStrip}"
+          />
+        </div>
+      `;
+    }
+
+    function handleItemAmountKeyDown(event, orderId, itemId) {
+      const tab = getActiveTab();
+      const order = tab?.orders.find(o => o.id === orderId);
+      if (!order) return;
+      const idx = order.items.findIndex(i => i.id === itemId);
+
+      // Tab or Shift+Tab jumps strictly between Amount boxes (never into Item Name strip)
+      if (event.key === 'Tab') {
+        if (!event.shiftKey) {
+          if (idx + 1 < order.items.length) {
+            event.preventDefault();
+            const nextItem = order.items[idx + 1];
+            document.getElementById(`item-input-${nextItem.id}`)?.focus();
+          }
+        } else {
+          if (idx - 1 >= 0) {
+            event.preventDefault();
+            const prevItem = order.items[idx - 1];
+            document.getElementById(`item-input-${prevItem.id}`)?.focus();
+          }
+        }
+        return;
+      }
+
+      // Down arrow lets user quickly drop into Item Name if desired
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        document.getElementById(`item-name-${itemId}`)?.focus();
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        const currentVal = String(order.items[idx]?.amount || '').trim();
+        if (currentVal === '' && idx > 0) {
+          mergeCustomerOrder(orderId);
+        } else if (idx + 1 < order.items.length) {
+          const nextItem = order.items[idx + 1];
+          document.getElementById(`item-input-${nextItem.id}`)?.focus();
+        }
+      }
+    }
+
+    function handleItemNameKeyDown(event, orderId, itemId) {
+      const tab = getActiveTab();
+      const order = tab?.orders.find(o => o.id === orderId);
+      if (!order) return;
+      const idx = order.items.findIndex(i => i.id === itemId);
+
+      if (event.key === 'Tab' || event.key === 'Enter') {
+        event.preventDefault();
+        if (event.shiftKey && idx - 1 >= 0) {
+          document.getElementById(`item-input-${order.items[idx - 1].id}`)?.focus();
+        } else if (idx + 1 < order.items.length) {
+          document.getElementById(`item-input-${order.items[idx + 1].id}`)?.focus();
+        }
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        document.getElementById(`item-input-${itemId}`)?.focus();
+      }
+    }
+
+    function buildSingleOrderFullHTML(order, orderIdx, theme) {
+      const totals = calculateOrderTotals(order);
+      const bwClass = order.isCompleted ? 'order-completed-bw' : '';
+
+      /**************************************************************
+       * VIEW 1: MERGED STATE (ULTRA-COMPACT ON COMPUTER SO 5-6 FIT EASILY)
+       **************************************************************/
+      if (order.isMerged) {
+        const customerDisplay = order.customerName.trim() || `Order #${orderIdx + 1}`;
+        const phoneDisplay = order.customerPhone.trim();
+        const isPaid = Boolean(order.isPaid);
+        const isDelivered = Boolean(order.isCompleted);
+
+        return `
+          <div
+            id="order-card-${order.id}"
+            onclick="unmergeCustomerOrder('${order.id}')"
+            class="rounded-xl border-2 ${theme.mergedBg} ${bwClass} px-3 py-2 sm:px-3.5 sm:py-2.5 transition select-none ${
+              isDelivered ? 'cursor-default' : 'cursor-pointer hover:opacity-95 active:scale-[0.99]'
+            }">
+
+            <!-- Single Compact Row on Desktop, Stacked cleanly on Mobile -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <!-- Left: Order # + Customer Name + Phone + Merged Count Badge -->
+              <div class="flex items-center gap-2.5 min-w-0 flex-1">
+                <span class="px-2 py-0.5 rounded-md text-xs font-extrabold uppercase bg-white/25 text-white border border-white/40 font-mono-num shrink-0">
+                  #${orderIdx + 1} • ${totals.validCount} ${totals.validCount === 1 ? 'Item' : 'Items'}
+                </span>
+                <div class="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
+                  <span class="text-sm sm:text-base font-extrabold text-white truncate ${isDelivered ? 'line-through opacity-85' : ''}">
+                    ${escapeHtml(customerDisplay)}
+                  </span>
+                  ${
+                    phoneDisplay
+                      ? `<span class="text-xs font-mono-num text-white/95 truncate">(${escapeHtml(phoneDisplay)})</span>`
+                      : ''
+                  }
+                  <span class="text-[11px] font-mono-num text-white/80">${escapeHtml(order.createdAt)}</span>
+                </div>
+              </div>
+
+              <!-- Right: Paid Button + Delivered Button + Print + Delete + Total Box -->
+              <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/20" onclick="event.stopPropagation()">
+                
+                <!-- Paid Toggle Button -->
+                <button type="button"
+                  onclick="toggleOrderPaid(event, '${order.id}')"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-left transition cursor-pointer ${
+                    isPaid
+                      ? 'bg-white text-slate-900 border-white shadow-2xs'
+                      : 'bg-black/20 text-white border-white/40 hover:bg-black/30'
+                  }">
+                  <span class="w-4 h-4 rounded border flex items-center justify-center text-xs font-extrabold shrink-0 ${
+                    isPaid
+                      ? 'bg-emerald-600 border-emerald-600 text-white'
+                      : 'bg-white/15 border-white text-transparent'
+                  }">✓</span>
+                  <span class="text-xs font-extrabold uppercase tracking-wide">Paid</span>
+                </button>
+
+                <!-- Delivered Toggle Button -->
+                <button type="button"
+                  onclick="toggleOrderCompleted(event, '${order.id}')"
+                  class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-left transition cursor-pointer ${
+                    isDelivered
+                      ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                      : 'bg-black/20 text-white border-white/40 hover:bg-black/30'
+                  }">
+                  <span class="w-4 h-4 rounded border flex items-center justify-center text-xs font-extrabold shrink-0 ${
+                    isDelivered
+                      ? 'bg-white border-white text-slate-900'
+                      : 'bg-white/15 border-white text-transparent'
+                  }">✓</span>
+                  <span class="text-xs font-extrabold uppercase tracking-wide">Delivered</span>
+                </button>
+
+                <!-- Direct Print Button -->
+                <button type="button" onclick="printOrderSlips('${order.id}')"
+                  title="Direct Print 2 Slips"
+                  class="px-2.5 py-1.5 rounded-lg flex items-center gap-1 bg-white text-slate-900 border border-white/80 hover:bg-slate-100 text-xs font-black shadow-2xs cursor-pointer transition active:scale-95">
+                  <span>🖨️</span>
+                  <span class="hidden md:inline">Print</span>
+                </button>
+
+                <!-- Delete Button -->
+                <button type="button" onclick="promptDeleteCustomerOrder('${order.id}')"
+                  title="Delete Order"
+                  class="w-7 h-7 rounded-lg flex items-center justify-center bg-black/25 text-white border border-white/35 hover:bg-rose-600 hover:border-rose-600 text-xs font-bold cursor-pointer transition">
+                  🗑
+                </button>
+
+                <!-- Merged Total Box with Diagonal Line when Paid -->
+                <div class="${theme.mergedTotalBox} px-3 py-1 rounded-xl border text-right shrink-0 shadow-inner min-w-[76px]">
+                  <div class="text-lg sm:text-xl font-extrabold font-mono-num leading-tight ${isPaid ? 'paid-diagonal-strike opacity-95' : ''}">
+                    ₹${totals.grandTotal}
+                  </div>
+                </div>
+
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      /**************************************************************
+       * VIEW 2: OPEN / EDITING STATE (COMPACT SO 4+ CARDS FIT ON SCREEN)
+       **************************************************************/
+      const itemsBoxesHTML = order.items
+        .map((item, idx) => buildSingleItemBoxHTML(order, item, idx + 1, theme))
+        .join('');
+
+      return `
+        <div id="order-card-${order.id}" class="rounded-xl border-2 ${theme.border} ${theme.bg} px-2.5 py-2 sm:px-3 sm:py-2 shadow-2xs">
+
+          <!-- Top Bar: # + Name + Phone + Live Sub/GST/Total + Print + Delete -->
+          <div class="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-1.5">
+            <span class="px-2 py-0.5 rounded-md text-xs font-bold ${theme.accent} shrink-0">
+              #${orderIdx + 1}
+            </span>
+            <input
+              type="text"
+              placeholder="Name"
+              value="${escapeHtml(order.customerName)}"
+              oninput="handleCustomerMetaInput('${order.id}', 'customerName', this.value)"
+              class="w-28 sm:w-36 px-2 py-0.5 bg-white rounded-md border border-slate-300 text-xs font-semibold text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900"
+            />
+            <input
+              type="tel"
+              placeholder="Phone"
+              value="${escapeHtml(order.customerPhone)}"
+              oninput="handleCustomerMetaInput('${order.id}', 'customerPhone', this.value)"
+              class="w-28 sm:w-32 px-2 py-0.5 bg-white rounded-md border border-slate-300 text-xs font-semibold font-mono-num text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-slate-900"
+            />
+
+            <!-- Inline Live Sub / GST / Total Summary right in header bar to save vertical space -->
+            <div class="hidden lg:flex items-center gap-2.5 ml-2 text-[11px] font-mono-num text-slate-600">
+              <span>Sub: <strong id="order-subtotal-${order.id}" class="text-slate-900">₹${totals.subtotal.toFixed(0)}</strong></span>
+              <span>GST: <strong id="order-gst-${order.id}" class="text-slate-900">₹${totals.rawGst.toFixed(2)}</strong></span>
+              <span>Rnd: <strong id="order-round-${order.id}" class="text-slate-900">${totals.roundOff >= 0 ? '+' : ''}${totals.roundOff.toFixed(2)}</strong></span>
+            </div>
+
+            <div class="ml-auto flex items-center gap-1.5 shrink-0">
+              <span class="text-[10px] font-mono-num text-slate-500 hidden sm:inline">
+                ${escapeHtml(order.createdAt)}
+              </span>
+              <div class="bg-white px-2 py-0.5 rounded-md border border-slate-300 font-bold text-slate-900 text-xs font-mono-num">
+                Total: <span id="order-grand-${order.id}" class="font-extrabold">₹${totals.grandTotal}</span>
+              </div>
+              <button type="button" tabindex="-1" onclick="printOrderSlips('${order.id}')"
+                title="Direct Print 2 Slips"
+                class="px-2 py-0.5 rounded-md bg-white text-slate-800 border border-slate-300 hover:bg-slate-900 hover:text-white flex items-center gap-1 text-xs font-bold shrink-0 cursor-pointer transition">
+                <span>🖨️</span>
+                <span class="hidden sm:inline">Print</span>
+              </button>
+              <button type="button" tabindex="-1" onclick="promptDeleteCustomerOrder('${order.id}')"
+                class="w-6 h-6 rounded-md bg-white text-rose-600 border border-rose-200 hover:bg-rose-600 hover:text-white flex items-center justify-center text-xs font-bold shrink-0 cursor-pointer">
+                ✕
+              </button>
+            </div>
+          </div>
+
+          <!-- Item Boxes Grid + Save Box -->
+          <div id="items-row-${order.id}" class="flex items-stretch flex-wrap gap-1.5">
+            ${itemsBoxesHTML}
+
+            <!-- Save / Merge Button Box -->
+            <div id="save-btn-wrapper-${order.id}" class="shrink-0 w-[47%] sm:w-28 flex">
+              <button type="button" onclick="mergeCustomerOrder('${order.id}')"
+                class="w-full rounded-xl ${theme.accent} hover:opacity-95 active:scale-95 transition flex flex-col items-center justify-center p-1.5 shadow-2xs cursor-pointer">
+                <span class="text-[11px] font-bold uppercase tracking-wider">Save</span>
+                <span id="save-btn-total-${order.id}" class="text-sm font-extrabold font-mono-num">
+                  ₹${totals.grandTotal}
+                </span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      `;
+    }
+
+    function updateSingleOrderCardDOM(orderId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const orderIdx = tab.orders.findIndex(o => o.id === orderId);
+      if (orderIdx === -1) return;
+      const order = tab.orders[orderIdx];
+
+      const existingEl = document.getElementById(`order-card-${orderId}`);
+      if (existingEl) {
+        const theme = ORDER_THEMES[order.themeIndex % ORDER_THEMES.length];
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = buildSingleOrderFullHTML(order, orderIdx, theme);
+        if (tempDiv.firstElementChild) {
+          existingEl.replaceWith(tempDiv.firstElementChild);
+        }
+      } else {
+        renderOrdersList();
+      }
+
+      updateTabSummaryStats(tab);
+      renderTabsBar();
+    }
+
+    /**************************************************************
+     * TABS BAR RENDERING
+     **************************************************************/
+    function renderTabsBar() {
+      const container = document.getElementById('tabsContainer');
+      if (!container) return;
+      container.innerHTML = appState.tabs.map(tab => {
+        const isActive = tab.id === appState.activeTabId;
+        const orderCount = (tab.orders || []).filter(o => calculateOrderTotals(o).validCount > 0).length;
+
+        return `
+          <div onclick="switchTab('${tab.id}')"
+            class="shrink-0 flex items-center gap-1.5 md:gap-2 px-3 py-1 md:px-3.5 md:py-1.5 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition cursor-pointer select-none border ${
+              isActive
+                ? 'bg-slate-900 text-white border-slate-900 shadow-2xs'
+                : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+            }">
+            <span class="truncate max-w-[100px] md:max-w-[150px]">${escapeHtml(tab.name)}</span>
+            ${
+              orderCount > 0
+                ? `<span class="px-1.5 py-0.2 rounded-full text-[10px] md:text-xs font-mono-num ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-slate-300 text-slate-800'
+                  }">${orderCount}</span>`
+                : ''
+            }
+            <button type="button" onclick="promptCloseTab(event, '${tab.id}')"
+              title="Close Tab"
+              class="w-4 h-4 rounded-full flex items-center justify-center opacity-70 hover:opacity-100 hover:text-rose-400 text-xs">
+              ✕
+            </button>
+          </div>
+        `;
+      }).join('');
+    }
+
+    /**************************************************************
+     * ORDERS LIST RENDERING (VIRTUAL CHUNKED / INFINITE SCROLL)
+     **************************************************************/
+    function renderOrdersList() {
+      const tab = getActiveTab();
+      const container = document.getElementById('ordersListContainer');
+      if (!tab || !container) return;
+
+      updateTabSummaryStats(tab);
+
+      const filtered = getFilteredOrders(tab);
+
+      if (filtered.length === 0) {
+        if (tab.orders.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-10 bg-white rounded-2xl border border-slate-200 p-6">
+              <p class="text-slate-500 text-sm font-semibold">No orders in this tab yet.</p>
+              <button onclick="addCustomerToActiveTab(true)" class="mt-3 px-4 py-2 bg-indigo-600 text-white font-bold rounded-xl text-xs hover:bg-indigo-700 transition">
+                + Add First Customer Box
+              </button>
+            </div>
+          `;
+        } else {
+          container.innerHTML = `
+            <div class="text-center py-10 bg-white rounded-2xl border border-slate-200 p-6">
+              <p class="text-slate-500 text-sm font-semibold">No matching orders found.</p>
+              <button onclick="clearSearch()" class="mt-3 px-3 py-1.5 bg-slate-100 text-slate-700 font-bold rounded-xl text-xs hover:bg-slate-200 transition">
+                Clear Filters
+              </button>
+            </div>
+          `;
+        }
+        return;
+      }
+
+      const sliceToRender = filtered.slice(0, visibleLimit);
+
+      const htmlArr = sliceToRender.map(order => {
+        const realIndex = tab.orders.findIndex(o => o.id === order.id);
+        const theme = ORDER_THEMES[order.themeIndex % ORDER_THEMES.length];
+        return buildSingleOrderFullHTML(order, realIndex >= 0 ? realIndex : 0, theme);
+      });
+
+      const hasMore = visibleLimit < filtered.length;
+      if (hasMore) {
+        htmlArr.push(`
+          <div id="loadMoreSentinel" class="py-3 text-center">
+            <button type="button" onclick="loadMoreOrders()" class="px-5 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-100 shadow-2xs transition">
+              Showing ${sliceToRender.length} of ${filtered.length} orders — Tap to Load More
+            </button>
+          </div>
+        `);
+      }
+
+      container.innerHTML = htmlArr.join('');
+
+      setupIntersectionObserver();
+    }
+
+    function loadMoreOrders() {
+      const tab = getActiveTab();
+      const filtered = getFilteredOrders(tab);
+      if (visibleLimit >= filtered.length) return;
+
+      const currentCount = visibleLimit;
+      visibleLimit += BATCH_SIZE;
+      const nextSlice = filtered.slice(currentCount, visibleLimit);
+
+      const container = document.getElementById('ordersListContainer');
+      const sentinel = document.getElementById('loadMoreSentinel');
+      if (!container) return;
+
+      const frag = document.createDocumentFragment();
+      nextSlice.forEach(order => {
+        const realIndex = tab.orders.findIndex(o => o.id === order.id);
+        const theme = ORDER_THEMES[order.themeIndex % ORDER_THEMES.length];
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = buildSingleOrderFullHTML(order, realIndex >= 0 ? realIndex : 0, theme);
+        if (tempDiv.firstElementChild) {
+          frag.appendChild(tempDiv.firstElementChild);
+        }
+      });
+
+      if (sentinel) {
+        container.insertBefore(frag, sentinel);
+        if (visibleLimit >= filtered.length) {
+          sentinel.remove();
+        } else {
+          const btn = sentinel.querySelector('button');
+          if (btn) btn.textContent = `Showing ${Math.min(visibleLimit, filtered.length)} of ${filtered.length} orders — Tap to Load More`;
+        }
+      } else {
+        container.appendChild(frag);
+      }
+
+      setupIntersectionObserver();
+    }
+
+    function setupIntersectionObserver() {
+      if (intersectionObserver) {
+        intersectionObserver.disconnect();
+        intersectionObserver = null;
+      }
+      const sentinel = document.getElementById('loadMoreSentinel');
+      if (!sentinel || !window.IntersectionObserver) return;
+
+      intersectionObserver = new IntersectionObserver((entries) => {
+        if (entries[0] && entries[0].isIntersecting) {
+          loadMoreOrders();
+        }
+      }, { rootMargin: '250px' });
+
+      intersectionObserver.observe(sentinel);
+    }
+
+    function renderApp() {
+      renderTabsBar();
+      renderOrdersList();
+    }
+
+    function focusFirstEmptyInputInTab() {
+      setTimeout(() => {
+        const tab = getActiveTab();
+        if (!tab) return;
+        const firstActiveOrder = tab.orders.find(o => !o.isMerged && !o.isCompleted);
+        if (firstActiveOrder && firstActiveOrder.items.length > 0) {
+          const targetItem = firstActiveOrder.items[firstActiveOrder.items.length - 1];
+          const input = document.getElementById(`item-input-${targetItem.id}`);
+          if (input) {
+            input.focus();
+            input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }, 40);
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadState();
+      renderApp();
+    });
+
+    window.addEventListener('beforeunload', () => {
+      executeSave();
+    });
+  </script>
+</body>
+</html>
