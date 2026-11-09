@@ -80,11 +80,11 @@
 
     /**************************************************************
      * TVS RP-3200 LITE 3-INCH (80mm) ULTRA-CLEAN THERMAL PRINT
+     * - Fires TWO separate print jobs so the printer's auto-cutter
+     *   blade physically cuts Slip 1 and Slip 2 into 2 separate pieces!
      * - Shifted right (padding-left: 7mm) so left text never clips
      * - No "₹" symbol on the printed slip
      * - Prints ONLY the selected Order Type (either PACK or DINE IN)
-     * - Quantity box right next to amount so maximum space remains for item name
-     * - Order # (1, 2, 3...) & [✓] PAID / [ ] PAID checkbox on every slip
      **************************************************************/
     #thermalPrintRoot {
       display: none;
@@ -121,22 +121,9 @@
       }
       .thermal-slip-page {
         width: 100% !important;
-        padding: 2.5mm 3mm 4mm 7mm !important;
+        padding: 2.5mm 3mm 5mm 7mm !important;
         box-sizing: border-box !important;
         page-break-inside: avoid !important;
-      }
-      .thermal-tear-zone {
-        width: 100% !important;
-        padding: 7mm 3mm 7mm 7mm !important;
-        box-sizing: border-box !important;
-        text-align: center !important;
-        page-break-after: always !important;
-        break-after: page !important;
-      }
-      .thermal-tear-line {
-        border-top: 2.5px dashed #000000 !important;
-        width: 100% !important;
-        height: 2px !important;
       }
     }
   </style>
@@ -236,11 +223,19 @@
     <div id="ordersListContainer" class="flex flex-col gap-2"></div>
   </main>
 
+  <!-- FLOATING ITEM PICKER POPOVER (CATEGORY FILTER PILLS + KEYWORD SEARCH + AUTO PRICE FILL) -->
+  <div id="itemMenuPopover" class="fixed z-50 hidden bg-white rounded-xl shadow-2xl border-2 border-slate-800 w-64 max-h-72 flex-col overflow-hidden animate-pop">
+    <!-- Category Filter Pills Bar (Appears when multiple categories share the same rate, e.g. 105) -->
+    <div id="popoverCategoryBar" class="hidden px-2 py-1.5 bg-slate-100 border-b border-slate-200 flex-wrap gap-1"></div>
+    <!-- Matching Items List -->
+    <div id="popoverItemsList" class="overflow-y-auto divide-y divide-slate-100 flex-1"></div>
+  </div>
+
   <!-- PRINT MODE CHOICE MODAL: PACK vs DINE IN -->
   <div id="printTypeModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
     <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 animate-pop text-center">
       <div class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Select Order Type</div>
-      <h3 class="text-base font-extrabold text-slate-900 mt-0.5">Print 2 Slips</h3>
+      <h3 class="text-base font-extrabold text-slate-900 mt-0.5">Print 2 Separate Cut Slips</h3>
       <div class="grid grid-cols-2 gap-3 mt-4">
         <button type="button" onclick="confirmPrintWithOrderType('PACK')"
           class="py-3.5 px-3 rounded-xl text-sm font-black bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/25 active:scale-95 transition flex flex-col items-center justify-center gap-1 cursor-pointer border-2 border-amber-600">
@@ -283,274 +278,227 @@
 
   <script>
     /**************************************************************
-     * COMPLETE MENU RATE CARD FROM POSTER (NO EXTRA CRUST/TOPPING ADDONS)
-     * Pizzas include (Regular), (Medium), (Large), (Giant) right in the name
+     * COMPLETE STRUCTURED MENU CATALOG WITH CATEGORIES & RATES
+     * Supports:
+     * 1. Rate -> Items lookup with Category Filter Pills (e.g., 105 -> Shake's, Mojito, Mini Pizza...)
+     * 2. Word / Name search (e.g. typing "coffee" -> Hot Coffee 67, Cold Coffee 105) with auto-rate fill!
      **************************************************************/
-    const MENU_BY_PRICE = {
-      33: [
-        'Cheesy Dip',
-        'Spicy Dip',
-        'Tandoori Dip',
-        'Coke / Pepsi / Sprite / Dew'
-      ],
-      38: [
-        'Ice Cream Vanilla'
-      ],
-      43: [
-        'Ice Cream Vanilla (Chocolate)',
-        'Ice Cream Vanilla (Strawberry)',
-        'Ice Cream Vanilla (Butterscotch)',
-        'Ice Cream Vanilla (Blue Berry)'
-      ],
-      45: [
-        'Aloo Patty Burger'
-      ],
-      48: [
-        'Hot Tea'
-      ],
-      62: [
-        'Veg Burger',
-        'Veg Pocket',
-        'Fresh Lime Soda'
-      ],
-      65: [
-        'Mini Soya Pizza'
-      ],
-      67: [
-        'Hot Coffee'
-      ],
-      71: [
-        'Pub-Ji Burger',
-        'Paneer Pocket'
-      ],
-      76: [
-        'Cheesy Burger'
-      ],
-      81: [
-        'Juicy Corn Burger',
-        'Cold Sandwich',
-        'Salted Fries',
-        'Chocolava Cake'
-      ],
-      86: [
-        'Mexican Burger',
-        'Mini Onion Pizza'
-      ],
-      90: [
-        'Mini Capsicum Pizza',
-        'Mini Corn Pizza',
-        'Mini Pineapple Pizza',
-        'Masala Fries',
-        'Peri-Peri Fries'
-      ],
-      95: [
-        'Grilled Sandwich'
-      ],
-      100: [
-        'Paneer Burger',
-        'Garlic Bread',
-        'Chocolava Cake with Ice Cream'
-      ],
-      105: [
-        'Spicy Grilled Sandwich',
-        'Aloo Tikki Wrap',
-        'Mini Onion & Corn Pizza',
-        'Mini Soya & Corn Pizza',
-        'Mini Onion & Jalapenos Pizza',
-        'Mini Onion & Capsicum Pizza',
-        'Strawberry Shake',
-        'Chocolate Shake',
-        'Vanilla Shake',
-        'Oreo Shake',
-        'Butter Scotch Shake',
-        'Blue Berry Shake',
-        'Kit Kat Shake',
-        'Mint Mojito',
-        'Water Melon Mojito',
-        'Blue Virgin Mojito',
-        'Cold Coffee'
-      ],
-      110: [
-        'Single Cheese Pizza (Regular)',
-        'Mini Paneer & Onion Pizza',
-        'Mini Paneer & Capsicum Pizza',
-        'Mini Jalapeno & Pineapple Pizza',
-        'Cheese Loaded Fries'
-      ],
-      114: [
-        'Supreme Burger',
-        'Cheesy Grilled Sandwich',
-        'Red Pasta',
-        'White Pasta',
-        'Cheesy Wrap'
-      ],
-      119: [
-        'Potato Wedges'
-      ],
-      124: [
-        'Tandoori Pasta',
-        'Paneer Wrap',
-        'Mexican Wrap',
-        'Veg Salad'
-      ],
-      129: [
-        'Aloo Patty Burger (Combo)',
-        'Calzone',
-        'Veg Loaded Garlic Bread',
-        'Jumbo Pasta',
-        'Veg Taco'
-      ],
-      133: [
-        'Paneer Sandwich',
-        'Makhni Pasta'
-      ],
-      138: [
-        'Double Cheese Pizza (Regular)',
-        'Cheese & Mushroom Pizza (Regular)',
-        'Cheese & Corn Pizza (Regular)',
-        'Cheese & Tomato Pizza (Regular)',
-        'Sweet & Spicy Pasta',
-        'Paneer Salad'
-      ],
-      143: [
-        'Laden Garlic Bread',
-        'Mexican Salad'
-      ],
-      148: [
-        'Veg Burger (Combo)'
-      ],
-      152: [
-        'Makhani Paneer Pizza (Regular)',
-        'Tandoori Paneer Pizza (Regular)',
-        'Achari Pizza (Regular)',
-        'Farm Fresh Pizza (Regular)',
-        'Delight Pizza (Regular)'
-      ],
-      157: [
-        'Pub-Ji Burger (Combo)'
-      ],
-      162: [
-        'Cheesy Burger (Combo)'
-      ],
-      167: [
-        'Juicy Corn Burger (Combo)'
-      ],
-      171: [
-        'Mexican Burger (Combo)'
-      ],
-      181: [
-        'Mexican Pizza (Regular)',
-        'Classic Pizza (Regular)',
-        'Black & White Pizza (Regular)',
-        'Spicy Paneer Pizza (Regular)',
-        'Chilly Pizza (Regular)',
-        'Paneer Burger (Combo)'
-      ],
-      195: [
-        'Supreme Burger (Combo)'
-      ],
-      205: [
-        'Mix Veg. Pizza (Regular)',
-        'Veg. Supreme Pizza (Regular)',
-        'Laden Pizza (Regular)'
-      ],
-      219: [
-        'Single Cheese Pizza (Medium)'
-      ],
-      267: [
-        'Double Cheese Pizza (Medium)',
-        'Cheese & Mushroom Pizza (Medium)',
-        'Cheese & Corn Pizza (Medium)',
-        'Cheese & Tomato Pizza (Medium)'
-      ],
-      314: [
-        'Combo Any 4 Mini Single Topping Pizzas'
-      ],
-      333: [
-        'Makhani Paneer Pizza (Medium)',
-        'Tandoori Paneer Pizza (Medium)',
-        'Achari Pizza (Medium)',
-        'Farm Fresh Pizza (Medium)',
-        'Delight Pizza (Medium)'
-      ],
-      338: [
-        'Single Cheese Pizza (Large)'
-      ],
-      371: [
-        'Combo Any 4 Mini Double Topping Pizzas'
-      ],
-      381: [
-        'Double Cheese Pizza (Large)',
-        'Cheese & Mushroom Pizza (Large)',
-        'Cheese & Corn Pizza (Large)',
-        'Cheese & Tomato Pizza (Large)'
-      ],
-      395: [
-        'Mexican Pizza (Medium)',
-        'Classic Pizza (Medium)',
-        'Black & White Pizza (Medium)',
-        'Spicy Paneer Pizza (Medium)',
-        'Chilly Pizza (Medium)'
-      ],
-      457: [
-        'Single Cheese Pizza (Giant)',
-        'Mix Veg. Pizza (Medium)',
-        'Veg. Supreme Pizza (Medium)',
-        'Laden Pizza (Medium)'
-      ],
-      510: [
-        'Makhani Paneer Pizza (Large)',
-        'Tandoori Paneer Pizza (Large)',
-        'Achari Pizza (Large)',
-        'Farm Fresh Pizza (Large)',
-        'Delight Pizza (Large)'
-      ],
-      533: [
-        'Mexican Pizza (Large)',
-        'Classic Pizza (Large)',
-        'Black & White Pizza (Large)',
-        'Spicy Paneer Pizza (Large)',
-        'Chilly Pizza (Large)'
-      ],
-      543: [
-        'Double Cheese Pizza (Giant)',
-        'Cheese & Mushroom Pizza (Giant)',
-        'Cheese & Corn Pizza (Giant)',
-        'Cheese & Tomato Pizza (Giant)'
-      ],
-      576: [
-        'Mix Veg. Pizza (Large)',
-        'Veg. Supreme Pizza (Large)',
-        'Laden Pizza (Large)'
-      ],
-      681: [
-        'Makhani Paneer Pizza (Giant)',
-        'Tandoori Paneer Pizza (Giant)',
-        'Achari Pizza (Giant)',
-        'Farm Fresh Pizza (Giant)',
-        'Delight Pizza (Giant)'
-      ],
-      800: [
-        'Mexican Pizza (Giant)',
-        'Classic Pizza (Giant)',
-        'Black & White Pizza (Giant)',
-        'Spicy Paneer Pizza (Giant)',
-        'Chilly Pizza (Giant)'
-      ],
-      914: [
-        'Mix Veg. Pizza (Giant)',
-        'Veg. Supreme Pizza (Giant)',
-        'Laden Pizza (Giant)'
-      ]
-    };
+    const MENU_CATALOG = [
+      // PIZZAS (Regular / Medium / Large / Giant)
+      { name: 'Single Cheese Pizza (Regular)', price: 110, category: "Pizza's" },
+      { name: 'Single Cheese Pizza (Medium)', price: 219, category: "Pizza's" },
+      { name: 'Single Cheese Pizza (Large)', price: 338, category: "Pizza's" },
+      { name: 'Single Cheese Pizza (Giant)', price: 457, category: "Pizza's" },
 
-    function getMenuItemsForRate(rawAmount) {
+      { name: 'Double Cheese Pizza (Regular)', price: 138, category: "Pizza's" },
+      { name: 'Cheese & Mushroom Pizza (Regular)', price: 138, category: "Pizza's" },
+      { name: 'Cheese & Corn Pizza (Regular)', price: 138, category: "Pizza's" },
+      { name: 'Cheese & Tomato Pizza (Regular)', price: 138, category: "Pizza's" },
+
+      { name: 'Double Cheese Pizza (Medium)', price: 267, category: "Pizza's" },
+      { name: 'Cheese & Mushroom Pizza (Medium)', price: 267, category: "Pizza's" },
+      { name: 'Cheese & Corn Pizza (Medium)', price: 267, category: "Pizza's" },
+      { name: 'Cheese & Tomato Pizza (Medium)', price: 267, category: "Pizza's" },
+
+      { name: 'Double Cheese Pizza (Large)', price: 381, category: "Pizza's" },
+      { name: 'Cheese & Mushroom Pizza (Large)', price: 381, category: "Pizza's" },
+      { name: 'Cheese & Corn Pizza (Large)', price: 381, category: "Pizza's" },
+      { name: 'Cheese & Tomato Pizza (Large)', price: 381, category: "Pizza's" },
+
+      { name: 'Double Cheese Pizza (Giant)', price: 543, category: "Pizza's" },
+      { name: 'Cheese & Mushroom Pizza (Giant)', price: 543, category: "Pizza's" },
+      { name: 'Cheese & Corn Pizza (Giant)', price: 543, category: "Pizza's" },
+      { name: 'Cheese & Tomato Pizza (Giant)', price: 543, category: "Pizza's" },
+
+      { name: 'Makhani Paneer Pizza (Regular)', price: 152, category: "Pizza's" },
+      { name: 'Tandoori Paneer Pizza (Regular)', price: 152, category: "Pizza's" },
+      { name: 'Achari Pizza (Regular)', price: 152, category: "Pizza's" },
+      { name: 'Farm Fresh Pizza (Regular)', price: 152, category: "Pizza's" },
+      { name: 'Delight Pizza (Regular)', price: 152, category: "Pizza's" },
+
+      { name: 'Makhani Paneer Pizza (Medium)', price: 333, category: "Pizza's" },
+      { name: 'Tandoori Paneer Pizza (Medium)', price: 333, category: "Pizza's" },
+      { name: 'Achari Pizza (Medium)', price: 333, category: "Pizza's" },
+      { name: 'Farm Fresh Pizza (Medium)', price: 333, category: "Pizza's" },
+      { name: 'Delight Pizza (Medium)', price: 333, category: "Pizza's" },
+
+      { name: 'Makhani Paneer Pizza (Large)', price: 510, category: "Pizza's" },
+      { name: 'Tandoori Paneer Pizza (Large)', price: 510, category: "Pizza's" },
+      { name: 'Achari Pizza (Large)', price: 510, category: "Pizza's" },
+      { name: 'Farm Fresh Pizza (Large)', price: 510, category: "Pizza's" },
+      { name: 'Delight Pizza (Large)', price: 510, category: "Pizza's" },
+
+      { name: 'Makhani Paneer Pizza (Giant)', price: 681, category: "Pizza's" },
+      { name: 'Tandoori Paneer Pizza (Giant)', price: 681, category: "Pizza's" },
+      { name: 'Achari Pizza (Giant)', price: 681, category: "Pizza's" },
+      { name: 'Farm Fresh Pizza (Giant)', price: 681, category: "Pizza's" },
+      { name: 'Delight Pizza (Giant)', price: 681, category: "Pizza's" },
+
+      { name: 'Mexican Pizza (Regular)', price: 181, category: "Pizza's" },
+      { name: 'Classic Pizza (Regular)', price: 181, category: "Pizza's" },
+      { name: 'Black & White Pizza (Regular)', price: 181, category: "Pizza's" },
+      { name: 'Spicy Paneer Pizza (Regular)', price: 181, category: "Pizza's" },
+      { name: 'Chilly Pizza (Regular)', price: 181, category: "Pizza's" },
+
+      { name: 'Mexican Pizza (Medium)', price: 395, category: "Pizza's" },
+      { name: 'Classic Pizza (Medium)', price: 395, category: "Pizza's" },
+      { name: 'Black & White Pizza (Medium)', price: 395, category: "Pizza's" },
+      { name: 'Spicy Paneer Pizza (Medium)', price: 395, category: "Pizza's" },
+      { name: 'Chilly Pizza (Medium)', price: 395, category: "Pizza's" },
+
+      { name: 'Mexican Pizza (Large)', price: 533, category: "Pizza's" },
+      { name: 'Classic Pizza (Large)', price: 533, category: "Pizza's" },
+      { name: 'Black & White Pizza (Large)', price: 533, category: "Pizza's" },
+      { name: 'Spicy Paneer Pizza (Large)', price: 533, category: "Pizza's" },
+      { name: 'Chilly Pizza (Large)', price: 533, category: "Pizza's" },
+
+      { name: 'Mexican Pizza (Giant)', price: 800, category: "Pizza's" },
+      { name: 'Classic Pizza (Giant)', price: 800, category: "Pizza's" },
+      { name: 'Black & White Pizza (Giant)', price: 800, category: "Pizza's" },
+      { name: 'Spicy Paneer Pizza (Giant)', price: 800, category: "Pizza's" },
+      { name: 'Chilly Pizza (Giant)', price: 800, category: "Pizza's" },
+
+      { name: 'Mix Veg. Pizza (Regular)', price: 205, category: "Pizza's" },
+      { name: 'Veg. Supreme Pizza (Regular)', price: 205, category: "Pizza's" },
+      { name: 'Laden Pizza (Regular)', price: 205, category: "Pizza's" },
+
+      { name: 'Mix Veg. Pizza (Medium)', price: 457, category: "Pizza's" },
+      { name: 'Veg. Supreme Pizza (Medium)', price: 457, category: "Pizza's" },
+      { name: 'Laden Pizza (Medium)', price: 457, category: "Pizza's" },
+
+      { name: 'Mix Veg. Pizza (Large)', price: 576, category: "Pizza's" },
+      { name: 'Veg. Supreme Pizza (Large)', price: 576, category: "Pizza's" },
+      { name: 'Laden Pizza (Large)', price: 576, category: "Pizza's" },
+
+      { name: 'Mix Veg. Pizza (Giant)', price: 914, category: "Pizza's" },
+      { name: 'Veg. Supreme Pizza (Giant)', price: 914, category: "Pizza's" },
+      { name: 'Laden Pizza (Giant)', price: 914, category: "Pizza's" },
+
+      // MINI RANGE PIZZAS
+      { name: 'Mini Soya Pizza', price: 65, category: 'Mini Pizza' },
+      { name: 'Mini Onion Pizza', price: 86, category: 'Mini Pizza' },
+      { name: 'Mini Capsicum Pizza', price: 90, category: 'Mini Pizza' },
+      { name: 'Mini Corn Pizza', price: 90, category: 'Mini Pizza' },
+      { name: 'Mini Pineapple Pizza', price: 90, category: 'Mini Pizza' },
+      { name: 'Combo Any 4 Mini Single Topping Pizzas', price: 314, category: 'Mini Pizza' },
+      { name: 'Mini Onion & Corn Pizza', price: 105, category: 'Mini Pizza' },
+      { name: 'Mini Soya & Corn Pizza', price: 105, category: 'Mini Pizza' },
+      { name: 'Mini Onion & Jalapenos Pizza', price: 105, category: 'Mini Pizza' },
+      { name: 'Mini Onion & Capsicum Pizza', price: 105, category: 'Mini Pizza' },
+      { name: 'Mini Paneer & Onion Pizza', price: 110, category: 'Mini Pizza' },
+      { name: 'Mini Paneer & Capsicum Pizza', price: 110, category: 'Mini Pizza' },
+      { name: 'Mini Jalapeno & Pineapple Pizza', price: 110, category: 'Mini Pizza' },
+      { name: 'Combo Any 4 Mini Double Topping Pizzas', price: 371, category: 'Mini Pizza' },
+
+      // BURGERS & BURGER COMBOS
+      { name: 'Aloo Patty Burger', price: 45, category: "Burger's" },
+      { name: 'Veg Burger', price: 62, category: "Burger's" },
+      { name: 'Pub-Ji Burger', price: 71, category: "Burger's" },
+      { name: 'Cheesy Burger', price: 76, category: "Burger's" },
+      { name: 'Juicy Corn Burger', price: 81, category: "Burger's" },
+      { name: 'Mexican Burger', price: 86, category: "Burger's" },
+      { name: 'Paneer Burger', price: 100, category: "Burger's" },
+      { name: 'Supreme Burger', price: 114, category: "Burger's" },
+      { name: 'Aloo Patty Burger (Combo)', price: 129, category: "Burger's" },
+      { name: 'Veg Burger (Combo)', price: 148, category: "Burger's" },
+      { name: 'Pub-Ji Burger (Combo)', price: 157, category: "Burger's" },
+      { name: 'Cheesy Burger (Combo)', price: 162, category: "Burger's" },
+      { name: 'Juicy Corn Burger (Combo)', price: 167, category: "Burger's" },
+      { name: 'Mexican Burger (Combo)', price: 171, category: "Burger's" },
+      { name: 'Paneer Burger (Combo)', price: 181, category: "Burger's" },
+      { name: 'Supreme Burger (Combo)', price: 195, category: "Burger's" },
+
+      // SANDWICHES
+      { name: 'Cold Sandwich', price: 81, category: 'Sandwich' },
+      { name: 'Grilled Sandwich', price: 95, category: 'Sandwich' },
+      { name: 'Spicy Grilled Sandwich', price: 105, category: 'Sandwich' },
+      { name: 'Cheesy Grilled Sandwich', price: 114, category: 'Sandwich' },
+      { name: 'Paneer Sandwich', price: 133, category: 'Sandwich' },
+
+      // SALADS
+      { name: 'Veg Salad', price: 124, category: 'Salad' },
+      { name: 'Paneer Salad', price: 138, category: 'Salad' },
+      { name: 'Mexican Salad', price: 143, category: 'Salad' },
+
+      // PASTA'S
+      { name: 'Red Pasta', price: 114, category: "Pasta's" },
+      { name: 'White Pasta', price: 114, category: "Pasta's" },
+      { name: 'Tandoori Pasta', price: 124, category: "Pasta's" },
+      { name: 'Jumbo Pasta', price: 129, category: "Pasta's" },
+      { name: 'Makhni Pasta', price: 133, category: "Pasta's" },
+      { name: 'Sweet & Spicy Pasta', price: 138, category: "Pasta's" },
+
+      // WRAP'S
+      { name: 'Aloo Tikki Wrap', price: 105, category: "Wrap's" },
+      { name: 'Cheesy Wrap', price: 114, category: "Wrap's" },
+      { name: 'Paneer Wrap', price: 124, category: "Wrap's" },
+      { name: 'Mexican Wrap', price: 124, category: "Wrap's" },
+
+      // BREAD'S, FRIES & SNACKS
+      { name: 'Garlic Bread', price: 100, category: 'Snacks & Bread' },
+      { name: 'Veg Loaded Garlic Bread', price: 129, category: 'Snacks & Bread' },
+      { name: 'Laden Garlic Bread', price: 143, category: 'Snacks & Bread' },
+      { name: 'Salted Fries', price: 81, category: 'Snacks & Bread' },
+      { name: 'Masala Fries', price: 90, category: 'Snacks & Bread' },
+      { name: 'Peri-Peri Fries', price: 90, category: 'Snacks & Bread' },
+      { name: 'Cheese Loaded Fries', price: 110, category: 'Snacks & Bread' },
+      { name: 'Potato Wedges', price: 119, category: 'Snacks & Bread' },
+      { name: 'Calzone', price: 129, category: 'Snacks & Bread' },
+      { name: 'Veg Pocket', price: 62, category: 'Snacks & Bread' },
+      { name: 'Paneer Pocket', price: 71, category: 'Snacks & Bread' },
+      { name: 'Veg Taco', price: 129, category: 'Snacks & Bread' },
+
+      // DIP'S
+      { name: 'Cheesy Dip', price: 33, category: "Dip's" },
+      { name: 'Spicy Dip', price: 33, category: "Dip's" },
+      { name: 'Tandoori Dip', price: 33, category: "Dip's" },
+
+      // DESSERT'S
+      { name: 'Ice Cream Vanilla', price: 38, category: "Dessert's" },
+      { name: 'Ice Cream Vanilla (Chocolate)', price: 43, category: "Dessert's" },
+      { name: 'Ice Cream Vanilla (Strawberry)', price: 43, category: "Dessert's" },
+      { name: 'Ice Cream Vanilla (Butterscotch)', price: 43, category: "Dessert's" },
+      { name: 'Ice Cream Vanilla (Blue Berry)', price: 43, category: "Dessert's" },
+      { name: 'Chocolava Cake', price: 81, category: "Dessert's" },
+      { name: 'Chocolava Cake with Ice Cream', price: 100, category: "Dessert's" },
+
+      // SHAKE'S
+      { name: 'Strawberry Shake', price: 105, category: "Shake's" },
+      { name: 'Chocolate Shake', price: 105, category: "Shake's" },
+      { name: 'Vanilla Shake', price: 105, category: "Shake's" },
+      { name: 'Oreo Shake', price: 105, category: "Shake's" },
+      { name: 'Butter Scotch Shake', price: 105, category: "Shake's" },
+      { name: 'Blue Berry Shake', price: 105, category: "Shake's" },
+      { name: 'Kit Kat Shake', price: 105, category: "Shake's" },
+
+      // MOJITO
+      { name: 'Mint Mojito', price: 105, category: 'Mojito' },
+      { name: 'Water Melon Mojito', price: 105, category: 'Mojito' },
+      { name: 'Blue Virgin Mojito', price: 105, category: 'Mojito' },
+
+      // DRINK'S
+      { name: 'Hot Tea', price: 48, category: "Drink's" },
+      { name: 'Hot Coffee', price: 67, category: "Drink's" },
+      { name: 'Cold Coffee', price: 105, category: "Drink's" },
+      { name: 'Fresh Lime Soda', price: 62, category: "Drink's" },
+      { name: 'Coke / Pepsi / Sprite / Dew', price: 33, category: "Drink's" }
+    ];
+
+    function getCatalogItemsByRate(rawAmount) {
       const str = String(rawAmount ?? '').trim();
       if (!str) return [];
       const num = parseFloat(str);
       if (isNaN(num) || num <= 0) return [];
       const key = Math.round(num);
-      return MENU_BY_PRICE[key] || [];
+      return MENU_CATALOG.filter(entry => entry.price === key);
+    }
+
+    function getCatalogItemsByKeyword(query) {
+      const q = String(query ?? '').trim().toLowerCase();
+      if (!q) return [];
+      return MENU_CATALOG.filter(entry =>
+        entry.name.toLowerCase().includes(q) || entry.category.toLowerCase().includes(q)
+      );
     }
 
     /**************************************************************
@@ -698,6 +646,15 @@
     // Pending print order ID when choosing PACK vs DINE IN
     let pendingPrintOrderId = null;
 
+    // Active Item Menu Popover State
+    let popoverState = {
+      isOpen: false,
+      orderId: null,
+      itemId: null,
+      mode: 'rate', // 'rate' | 'search'
+      selectedCategory: 'ALL'
+    };
+
     function uid() {
       return 'id_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
     }
@@ -724,7 +681,6 @@
         amount: '',
         qty: 1,
         name: '',
-        customTextMode: false, // false = shows dropdown when rate matches; true = custom text input
         taxable: true, // Always 5% GST unless manually clicked
         manualTaxOverride: false,
         time: formatTimeNow()
@@ -980,6 +936,7 @@
      * TAB ACTIONS
      **************************************************************/
     function addNewTab() {
+      closeItemMenuPopover();
       const nextNum = appState.tabs.length + 1;
       const newTab = createNewTabObject(`Tab ${nextNum}`);
       appState.tabs.push(newTab);
@@ -995,6 +952,7 @@
 
     function switchTab(tabId) {
       if (appState.activeTabId === tabId) return;
+      closeItemMenuPopover();
       appState.activeTabId = tabId;
       visibleLimit = BATCH_SIZE;
       saveState(true);
@@ -1026,6 +984,7 @@
 
     function promptMasterClear() {
       openConfirmModal('Clear All?', 'Delete all tabs and orders?', () => {
+        closeItemMenuPopover();
         appState.colorCounter = 0;
         const freshTab = createNewTabObject('Tab 1');
         appState.tabs = [freshTab];
@@ -1146,9 +1105,231 @@
     }
 
     /**************************************************************
+     * SMART ITEM MENU POPOVER (CATEGORY FILTER PILLS + KEYWORD SEARCH)
+     * 1. When rate is typed (e.g., 105), shows category pills at top:
+     *    [All] [Shake's] [Mojito] [Mini Pizza] [Sandwich] [Wrap's] [Drink's]
+     *    Clicking "Mojito" immediately hides Shake's and shows only Mojitos!
+     * 2. When word is typed in Item Name box (e.g., "coffee"), shows
+     *    matching items with their prices (Hot Coffee ₹67, Cold Coffee ₹105).
+     *    Selecting one fills BOTH Item Name and Rate automatically!
+     **************************************************************/
+    function openItemMenuPopover(orderId, itemId, mode = 'rate') {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+      const item = order.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      popoverState.orderId = orderId;
+      popoverState.itemId = itemId;
+      popoverState.mode = mode;
+
+      // Determine candidate items
+      let candidates = [];
+      if (mode === 'search') {
+        const q = String(item.name || '').trim();
+        if (q.length > 0) {
+          candidates = getCatalogItemsByKeyword(q);
+        }
+        if (candidates.length === 0) {
+          candidates = getCatalogItemsByRate(item.amount);
+          popoverState.mode = 'rate';
+        }
+      } else {
+        candidates = getCatalogItemsByRate(item.amount);
+      }
+
+      if (candidates.length === 0) {
+        closeItemMenuPopover();
+        return;
+      }
+
+      const categories = [...new Set(candidates.map(c => c.category))];
+      if (popoverState.selectedCategory !== 'ALL' && !categories.includes(popoverState.selectedCategory)) {
+        popoverState.selectedCategory = 'ALL';
+      }
+
+      renderPopoverContent(order, item, candidates, categories);
+      positionPopoverUnderItemBox(itemId);
+    }
+
+    function renderPopoverContent(order, item, candidates, categories) {
+      const popover = document.getElementById('itemMenuPopover');
+      const catBar = document.getElementById('popoverCategoryBar');
+      const listEl = document.getElementById('popoverItemsList');
+      if (!popover || !catBar || !listEl) return;
+
+      // Show category filter pills if there are multiple categories
+      if (categories.length > 1) {
+        catBar.classList.remove('hidden');
+        catBar.classList.add('flex');
+        const allPills = ['ALL', ...categories];
+        catBar.innerHTML = allPills.map(cat => {
+          const isSelected = popoverState.selectedCategory === cat;
+          const label = cat === 'ALL' ? `All (${candidates.length})` : cat;
+          return `
+            <button type="button"
+              onmousedown="event.preventDefault(); selectPopoverCategory('${escapeHtml(cat)}')"
+              class="px-2 py-0.5 rounded-md text-[10px] font-extrabold transition cursor-pointer ${
+                isSelected
+                  ? 'bg-indigo-600 text-white shadow-2xs'
+                  : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-200'
+              }">
+              ${escapeHtml(label)}
+            </button>
+          `;
+        }).join('');
+      } else {
+        catBar.classList.add('hidden');
+        catBar.classList.remove('flex');
+        catBar.innerHTML = '';
+      }
+
+      const filteredCandidates = popoverState.selectedCategory === 'ALL'
+        ? candidates
+        : candidates.filter(c => c.category === popoverState.selectedCategory);
+
+      listEl.innerHTML = filteredCandidates.map((entry, idx) => {
+        const isCurrent = item.name === entry.name && Math.round(parseFloat(item.amount || 0)) === entry.price;
+        return `
+          <button type="button"
+            onmousedown="event.preventDefault(); pickCatalogItemForBox('${order.id}', '${item.id}', ${idx})"
+            data-entry-name="${escapeHtml(entry.name)}"
+            data-entry-price="${entry.price}"
+            class="w-full px-2.5 py-1.5 text-left text-[11px] hover:bg-indigo-50 flex items-center justify-between gap-2 transition cursor-pointer ${
+              isCurrent ? 'bg-indigo-50/80 font-extrabold text-indigo-950' : 'font-semibold text-slate-800'
+            }">
+            <div class="min-w-0 flex-1">
+              <div class="truncate">${escapeHtml(entry.name)}</div>
+              <div class="text-[9px] text-slate-400 font-medium">${escapeHtml(entry.category)}</div>
+            </div>
+            <span class="px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-mono-num text-[10px] font-extrabold shrink-0">
+              ₹${entry.price}
+            </span>
+          </button>
+        `;
+      }).join('');
+
+      // Store current filtered list on popoverState for direct index lookup
+      popoverState.currentFilteredList = filteredCandidates;
+      popoverState.isOpen = true;
+      popover.classList.remove('hidden');
+      popover.classList.add('flex');
+    }
+
+    function selectPopoverCategory(cat) {
+      popoverState.selectedCategory = cat;
+      const tab = getActiveTab();
+      const order = tab?.orders.find(o => o.id === popoverState.orderId);
+      const item = order?.items.find(i => i.id === popoverState.itemId);
+      if (!order || !item) return;
+
+      let candidates = popoverState.mode === 'search' && String(item.name || '').trim()
+        ? getCatalogItemsByKeyword(item.name)
+        : getCatalogItemsByRate(item.amount);
+
+      if (candidates.length === 0) candidates = getCatalogItemsByRate(item.amount);
+      const categories = [...new Set(candidates.map(c => c.category))];
+      renderPopoverContent(order, item, candidates, categories);
+    }
+
+    function pickCatalogItemForBox(orderId, itemId, filteredIdx) {
+      const entry = popoverState.currentFilteredList?.[filteredIdx];
+      if (!entry) return;
+
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+      const itemIndex = order.items.findIndex(i => i.id === itemId);
+      if (itemIndex === -1) return;
+      const item = order.items[itemIndex];
+
+      // Set both item name AND rate automatically
+      item.name = entry.name;
+      item.amount = String(entry.price);
+
+      const nameInput = document.getElementById(`item-name-${item.id}`);
+      if (nameInput) nameInput.value = entry.name;
+
+      const amtInput = document.getElementById(`item-input-${item.id}`);
+      if (amtInput) amtInput.value = String(entry.price);
+
+      // Update dropdown arrow badge visibility
+      updateItemDropdownArrowDOM(order.id, item);
+
+      // If this was the last box in the order, append a new blank box automatically
+      const isLastBox = itemIndex === order.items.length - 1;
+      if (isLastBox) {
+        const nextBox = createBlankItemBox();
+        order.items.push(nextBox);
+        appendNewItemBoxToDOM(order, nextBox);
+      }
+
+      saveState();
+      updateSingleQtyAndLineTotalDOM(item);
+      updateOrderLiveFooterDOM(order);
+      updateTabSummaryStats(tab);
+      closeItemMenuPopover();
+    }
+
+    function positionPopoverUnderItemBox(itemId) {
+      const popover = document.getElementById('itemMenuPopover');
+      const targetEl = document.getElementById(`item-name-slot-${itemId}`) || document.getElementById(`item-box-${itemId}`);
+      if (!popover || !targetEl) return;
+
+      const rect = targetEl.getBoundingClientRect();
+      const popoverWidth = 256;
+      let left = rect.left;
+      if (left + popoverWidth > window.innerWidth - 8) {
+        left = Math.max(8, window.innerWidth - popoverWidth - 8);
+      }
+
+      let top = rect.bottom + 4;
+      const maxPopoverHeight = 280;
+      if (top + maxPopoverHeight > window.innerHeight - 8 && rect.top > maxPopoverHeight) {
+        top = Math.max(8, rect.top - maxPopoverHeight - 4);
+      }
+
+      popover.style.left = `${left}px`;
+      popover.style.top = `${top}px`;
+    }
+
+    function closeItemMenuPopover() {
+      const popover = document.getElementById('itemMenuPopover');
+      if (popover) {
+        popover.classList.add('hidden');
+        popover.classList.remove('flex');
+      }
+      popoverState.isOpen = false;
+      popoverState.orderId = null;
+      popoverState.itemId = null;
+    }
+
+    // Close popover when clicking outside or scrolling
+    document.addEventListener('mousedown', (e) => {
+      if (!popoverState.isOpen) return;
+      const popover = document.getElementById('itemMenuPopover');
+      if (popover && popover.contains(e.target)) return;
+      if (popoverState.itemId) {
+        const box = document.getElementById(`item-box-${popoverState.itemId}`);
+        if (box && box.contains(e.target)) return;
+      }
+      closeItemMenuPopover();
+    });
+
+    window.addEventListener('scroll', () => {
+      if (popoverState.isOpen && popoverState.itemId) {
+        positionPopoverUnderItemBox(popoverState.itemId);
+      }
+    }, true);
+
+    /**************************************************************
      * ORDER & BOX ACTIONS
      **************************************************************/
     function addCustomerToActiveTab(shouldFocus = true) {
+      closeItemMenuPopover();
       const tab = getActiveTab();
       if (!tab) return;
       const newOrder = createNewOrderBlock();
@@ -1181,55 +1362,22 @@
       }
     }
 
-    /**************************************************************
-     * UNIFIED SINGLE ITEM NAME / DROPDOWN BOX LOGIC
-     * - No double boxes! The bottom box itself becomes a dropdown
-     *   when the entered amount matches poster rates.
-     * - If the amount is cleared or changed, the old item name clears
-     *   immediately and updates to match the new rate!
-     **************************************************************/
-    function buildBottomItemNameSlotInnerHTML(order, item, theme) {
-      const matches = getMenuItemsForRate(item.amount);
-
-      if (matches.length > 0 && !item.customTextMode) {
-        const hasSelectedMatch = matches.includes(item.name);
-        const optionsHTML = [
-          `<option value="" ${!hasSelectedMatch ? 'selected' : ''}>Select item (${matches.length})...</option>`,
-          ...matches.map(m => `<option value="${escapeHtml(m)}" ${item.name === m ? 'selected' : ''}>${escapeHtml(m)}</option>`),
-          `<option value="__CUSTOM__">✏️ Type custom name...</option>`
-        ].join('');
-
-        return `
-          <select
-            id="item-name-${item.id}"
-            tabindex="-1"
-            onchange="handleMenuSelect('${order.id}', '${item.id}', this.value)"
-            onkeydown="handleItemNameKeyDown(event, '${order.id}', '${item.id}')"
-            class="w-full px-1.5 py-0.5 rounded border text-[10px] font-bold text-slate-900 focus:outline-none cursor-pointer ${theme.itemStrip}">
-            ${optionsHTML}
-          </select>
-        `;
+    function updateItemDropdownArrowDOM(orderId, item) {
+      const btn = document.getElementById(`item-dd-btn-${item.id}`);
+      if (!btn) return;
+      const rateMatches = getCatalogItemsForBadgeCount(item);
+      if (rateMatches > 0) {
+        btn.classList.remove('hidden');
+        btn.classList.add('flex');
+        btn.textContent = `${rateMatches}▾`;
+      } else {
+        btn.classList.add('hidden');
+        btn.classList.remove('flex');
       }
-
-      return `
-        <input
-          id="item-name-${item.id}"
-          type="text"
-          tabindex="-1"
-          placeholder="Item name..."
-          value="${escapeHtml(String(item.name ?? ''))}"
-          oninput="handleItemNameInput('${order.id}', '${item.id}', this.value)"
-          onkeydown="handleItemNameKeyDown(event, '${order.id}', '${item.id}')"
-          class="w-full px-1.5 py-0.5 rounded border text-[10px] font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none ${theme.itemStrip}"
-        />
-      `;
     }
 
-    function updateBottomItemNameSlotDOM(order, item) {
-      const slot = document.getElementById(`item-name-slot-${item.id}`);
-      if (!slot) return;
-      const theme = ORDER_THEMES[order.themeIndex % ORDER_THEMES.length];
-      slot.innerHTML = buildBottomItemNameSlotInnerHTML(order, item, theme);
+    function getCatalogItemsForBadgeCount(item) {
+      return getCatalogItemsByRate(item.amount).length;
     }
 
     function handleItemAmountInput(orderId, itemId, rawValue) {
@@ -1243,33 +1391,44 @@
 
       const item = order.items[itemIndex];
       item.amount = rawValue;
-      item.customTextMode = false;
 
       const trimmed = String(rawValue ?? '').trim();
       const numericVal = parseFloat(trimmed);
+
+      const nameInput = document.getElementById(`item-name-${item.id}`);
 
       // When amount is removed/cleared, automatically clear item name & reset qty
       if (trimmed === '' || isNaN(numericVal) || numericVal <= 0) {
         item.name = '';
         item.qty = 1;
+        if (nameInput) nameInput.value = '';
+        closeItemMenuPopover();
       } else {
-        const matches = getMenuItemsForRate(trimmed);
+        const matches = getCatalogItemsByRate(trimmed);
         if (matches.length === 1) {
           // Single item at this price on poster -> auto-select it
-          item.name = matches[0];
+          item.name = matches[0].name;
+          if (nameInput) nameInput.value = item.name;
+          closeItemMenuPopover();
         } else if (matches.length > 1) {
-          // Multiple items at this price -> keep if already one of them, else reset so user picks from dropdown
-          if (!matches.includes(item.name)) {
+          // Multiple items at this price -> clear mismatched name and open category-filtered popover
+          if (!matches.some(m => m.name === item.name)) {
             item.name = '';
+            if (nameInput) nameInput.value = '';
           }
+          popoverState.selectedCategory = 'ALL';
+          openItemMenuPopover(orderId, itemId, 'rate');
         } else {
-          // Custom amount not on poster -> clear any previous auto-filled poster item name
-          item.name = '';
+          // Custom amount not on poster -> clear any previous poster item name
+          if (MENU_CATALOG.some(m => m.name === item.name)) {
+            item.name = '';
+            if (nameInput) nameInput.value = '';
+          }
+          closeItemMenuPopover();
         }
       }
 
-      // Update the single bottom Item Name / Dropdown slot
-      updateBottomItemNameSlotDOM(order, item);
+      updateItemDropdownArrowDOM(orderId, item);
 
       const isLastBox = itemIndex === order.items.length - 1;
       if (isLastBox && trimmed !== '' && !isNaN(numericVal) && numericVal > 0) {
@@ -1286,7 +1445,7 @@
       updateTabSummaryStats(tab);
     }
 
-    function handleMenuSelect(orderId, itemId, selectedValue) {
+    function handleItemNameInput(orderId, itemId, value) {
       const tab = getActiveTab();
       if (!tab) return;
       const order = tab.orders.find(o => o.id === orderId);
@@ -1294,19 +1453,55 @@
       const item = order.items.find(i => i.id === itemId);
       if (!item) return;
 
-      if (selectedValue === '__CUSTOM__') {
-        item.customTextMode = true;
-        item.name = '';
-        updateBottomItemNameSlotDOM(order, item);
-        setTimeout(() => {
-          document.getElementById(`item-name-${item.id}`)?.focus();
-        }, 20);
-        saveState();
-        return;
-      }
-
-      item.name = selectedValue;
+      item.name = value;
       saveState();
+
+      const q = String(value ?? '').trim();
+      if (q.length > 0) {
+        const keywordMatches = getCatalogItemsByKeyword(q);
+        if (keywordMatches.length > 0) {
+          popoverState.selectedCategory = 'ALL';
+          openItemMenuPopover(orderId, itemId, 'search');
+        } else {
+          closeItemMenuPopover();
+        }
+      } else {
+        // If user cleared the text input, show rate-based items if rate exists
+        const rateMatches = getCatalogItemsByRate(item.amount);
+        if (rateMatches.length > 0) {
+          popoverState.selectedCategory = 'ALL';
+          openItemMenuPopover(orderId, itemId, 'rate');
+        } else {
+          closeItemMenuPopover();
+        }
+      }
+    }
+
+    function handleItemNameFocus(orderId, itemId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+      const item = order.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      const rateMatches = getCatalogItemsByRate(item.amount);
+      if (rateMatches.length > 0) {
+        popoverState.selectedCategory = 'ALL';
+        openItemMenuPopover(orderId, itemId, 'rate');
+      } else if (String(item.name || '').trim().length > 0) {
+        openItemMenuPopover(orderId, itemId, 'search');
+      }
+    }
+
+    function toggleItemDropdownBtn(event, orderId, itemId) {
+      if (event) event.stopPropagation();
+      if (popoverState.isOpen && popoverState.itemId === itemId) {
+        closeItemMenuPopover();
+      } else {
+        popoverState.selectedCategory = 'ALL';
+        openItemMenuPopover(orderId, itemId, 'rate');
+      }
     }
 
     function changeItemQty(orderId, itemId, delta) {
@@ -1349,17 +1544,6 @@
           lineTotalEl.classList.add('hidden');
         }
       }
-    }
-
-    function handleItemNameInput(orderId, itemId, value) {
-      const tab = getActiveTab();
-      if (!tab) return;
-      const order = tab.orders.find(o => o.id === orderId);
-      if (!order || order.isCompleted) return;
-      const item = order.items.find(i => i.id === itemId);
-      if (!item) return;
-      item.name = value;
-      saveState();
     }
 
     function toggleItemTaxable(orderId, itemId) {
@@ -1436,6 +1620,7 @@
     }
 
     function clearSingleItemBox(orderId, itemId) {
+      closeItemMenuPopover();
       const tab = getActiveTab();
       if (!tab) return;
       const order = tab.orders.find(o => o.id === orderId);
@@ -1449,7 +1634,6 @@
           order.items[0].amount = '';
           order.items[0].qty = 1;
           order.items[0].name = '';
-          order.items[0].customTextMode = false;
           order.items[0].taxable = true;
           order.items[0].manualTaxOverride = false;
           order.items[0].time = formatTimeNow();
@@ -1472,6 +1656,7 @@
     }
 
     function promptDeleteCustomerOrder(orderId) {
+      closeItemMenuPopover();
       const tab = getActiveTab();
       if (!tab) return;
       const order = tab.orders.find(o => o.id === orderId);
@@ -1494,6 +1679,7 @@
     }
 
     function mergeCustomerOrder(orderId) {
+      closeItemMenuPopover();
       const tab = getActiveTab();
       if (!tab) return;
       const orderIndex = tab.orders.findIndex(o => o.id === orderId);
@@ -1535,6 +1721,7 @@
     }
 
     function unmergeCustomerOrder(orderId) {
+      closeItemMenuPopover();
       const tab = getActiveTab();
       if (!tab) return;
       const order = tab.orders.find(o => o.id === orderId);
@@ -1575,10 +1762,14 @@
     }
 
     /**************************************************************
-     * PRINT BUTTON FLOW -> SELECT "PACK" OR "DINE IN" -> PRINT 2 SLIPS
-     * Prints ONLY the single chosen word ("PACK" or "DINE IN") on the slip!
+     * TWO SEPARATE AUTO-CUT SLIPS PRINTING ENGINE
+     * Because TVS RP-3200 driver triggers its physical blade at the
+     * end of each print job ("Cut at Job End"), firing two sequential
+     * `window.print()` jobs causes the printer blade to cut Slip 1
+     * completely, and then immediately print & cut Slip 2!
      **************************************************************/
     function printOrderSlips(orderId) {
+      closeItemMenuPopover();
       const tab = getActiveTab();
       if (!tab) return;
       const order = tab.orders.find(o => o.id === orderId);
@@ -1616,19 +1807,20 @@
       saveState(true);
 
       const orderNum = orderIndex + 1;
-      const slipHTML = buildMinimalSingleSlipHTML(order, orderNum, chosenType);
-      const tearDividerHTML = `
-        <div class="thermal-tear-zone">
-          <div class="thermal-tear-line"></div>
-        </div>
-      `;
+      const singleSlipHTML = buildMinimalSingleSlipHTML(order, orderNum, chosenType);
 
       const printRoot = document.getElementById('thermalPrintRoot');
-      if (printRoot) {
-        printRoot.innerHTML = slipHTML + tearDividerHTML + slipHTML;
-      }
+      if (!printRoot) return;
 
+      // Put ONLY 1 slip in the print container and fire Print Job #1 (Printer prints & cuts Slip #1)
+      printRoot.innerHTML = singleSlipHTML;
       window.print();
+
+      // Automatically fire Print Job #2 after a brief spool gap so Printer prints & cuts Slip #2 separately
+      setTimeout(() => {
+        printRoot.innerHTML = singleSlipHTML;
+        window.print();
+      }, 450);
     }
 
     function buildMinimalSingleSlipHTML(order, orderNum, chosenType) {
@@ -1776,6 +1968,7 @@
       const qty = getItemQty(item);
       const unitVal = parseFloat(item.amount);
       const showLineTotal = !isNaN(unitVal) && unitVal > 0 && qty > 1;
+      const rateMatchesCount = getCatalogItemsForBadgeCount(item);
 
       const taxPillClass = isTaxable
         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -1784,8 +1977,6 @@
       const qtyBadgeClass = qty > 1
         ? 'px-1.5 py-0.5 text-[11px] font-extrabold font-mono-num bg-indigo-600 text-white rounded select-none'
         : 'px-1 py-0.5 text-[10px] font-bold font-mono-num text-slate-700 select-none';
-
-      const bottomSlotInner = buildBottomItemNameSlotInnerHTML(order, item, theme);
 
       return `
         <div id="item-box-${item.id}" class="shrink-0 w-[48%] sm:w-44 bg-white rounded-xl border-2 ${theme.boxBorder} p-1.5 shadow-2xs animate-pop flex flex-col justify-between">
@@ -1854,9 +2045,29 @@
             </div>
           </div>
 
-          <!-- Single Unified Bottom Box: Automatically acts as Dropdown when rate matches poster, or Input otherwise -->
-          <div id="item-name-slot-${item.id}" class="mt-1">
-            ${bottomSlotInner}
+          <!-- Single Unified Bottom Box: Supports both typing any word (e.g. "coffee") AND rate-based category dropdown -->
+          <div id="item-name-slot-${item.id}" class="mt-1 relative flex items-center">
+            <input
+              id="item-name-${item.id}"
+              type="text"
+              tabindex="-1"
+              autocomplete="off"
+              placeholder="Item name or search..."
+              value="${escapeHtml(String(item.name ?? ''))}"
+              onfocus="handleItemNameFocus('${order.id}', '${item.id}')"
+              oninput="handleItemNameInput('${order.id}', '${item.id}', this.value)"
+              onkeydown="handleItemNameKeyDown(event, '${order.id}', '${item.id}')"
+              class="w-full pl-1.5 pr-6 py-0.5 rounded border text-[10px] font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400 focus:outline-none ${theme.itemStrip}"
+            />
+            <button
+              type="button"
+              tabindex="-1"
+              id="item-dd-btn-${item.id}"
+              onclick="toggleItemDropdownBtn(event, '${order.id}', '${item.id}')"
+              title="Pick from Menu"
+              class="${rateMatchesCount > 0 ? 'flex' : 'hidden'} absolute right-0.5 inset-y-0.5 px-1 rounded bg-indigo-100 text-indigo-800 hover:bg-indigo-200 items-center justify-center text-[9px] font-extrabold font-mono-num cursor-pointer">
+              ${rateMatchesCount}▾
+            </button>
           </div>
         </div>
       `;
@@ -1870,6 +2081,7 @@
 
       // Tab or Shift+Tab jumps strictly between Amount boxes
       if (event.key === 'Tab') {
+        closeItemMenuPopover();
         if (!event.shiftKey) {
           if (idx + 1 < order.items.length) {
             event.preventDefault();
@@ -1892,8 +2104,14 @@
         return;
       }
 
+      if (event.key === 'Escape') {
+        closeItemMenuPopover();
+        return;
+      }
+
       if (event.key === 'Enter') {
         event.preventDefault();
+        closeItemMenuPopover();
         const currentVal = String(order.items[idx]?.amount || '').trim();
         if (currentVal === '' && idx > 0) {
           mergeCustomerOrder(orderId);
@@ -1910,8 +2128,23 @@
       if (!order) return;
       const idx = order.items.findIndex(i => i.id === itemId);
 
+      if (event.key === 'Escape') {
+        closeItemMenuPopover();
+        return;
+      }
+
       if (event.key === 'Tab' || event.key === 'Enter') {
         event.preventDefault();
+        // If Enter is pressed while search popover has results and user hasn't picked a full item yet, pick the first match
+        if (event.key === 'Enter' && popoverState.isOpen && popoverState.itemId === itemId && popoverState.currentFilteredList?.length > 0) {
+          const currentItem = order.items[idx];
+          const exactMatch = popoverState.currentFilteredList.some(e => e.name === currentItem.name);
+          if (!exactMatch) {
+            pickCatalogItemForBox(orderId, itemId, 0);
+            return;
+          }
+        }
+        closeItemMenuPopover();
         if (event.shiftKey && idx - 1 >= 0) {
           document.getElementById(`item-input-${order.items[idx - 1].id}`)?.focus();
         } else if (idx + 1 < order.items.length) {
@@ -1919,6 +2152,7 @@
         }
       } else if (event.key === 'ArrowUp') {
         event.preventDefault();
+        closeItemMenuPopover();
         document.getElementById(`item-input-${itemId}`)?.focus();
       }
     }
@@ -2002,7 +2236,7 @@
 
                 <!-- Print Button (Opens Pack / Dine In choice) -->
                 <button type="button" onclick="printOrderSlips('${order.id}')"
-                  title="Print 2 Slips (Pack / Dine In)"
+                  title="Print 2 Separate Cut Slips (Pack / Dine In)"
                   class="px-2.5 py-1.5 rounded-lg flex items-center gap-1 bg-white text-slate-900 border border-white/80 hover:bg-slate-100 text-xs font-black shadow-2xs cursor-pointer transition active:scale-95">
                   <span>🖨️</span>
                   <span class="hidden md:inline">Print</span>
@@ -2103,7 +2337,7 @@
                 Total: <span id="order-grand-${order.id}" class="font-extrabold">₹${totals.grandTotal}</span>
               </div>
               <button type="button" tabindex="-1" onclick="printOrderSlips('${order.id}')"
-                title="Print 2 Slips (Pack / Dine In)"
+                title="Print 2 Separate Cut Slips (Pack / Dine In)"
                 class="px-2 py-0.5 rounded-md bg-white text-slate-800 border border-slate-300 hover:bg-slate-900 hover:text-white flex items-center gap-1 text-xs font-bold shrink-0 cursor-pointer transition">
                 <span>🖨️</span>
                 <span class="hidden sm:inline">Print</span>
