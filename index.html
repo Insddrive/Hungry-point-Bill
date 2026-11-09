@@ -81,7 +81,8 @@
     /**************************************************************
      * TVS RP-3200 LITE 3-INCH (80mm) ULTRA-CLEAN THERMAL PRINT
      * - Shifted right (padding-left: 7mm) so left text never clips
-     * - No "₹" symbol on the printed slip (eliminates garbled glyph)
+     * - No "₹" symbol on the printed slip
+     * - Prints ONLY the selected Order Type (either PACK or DINE IN)
      * - Quantity box right next to amount so maximum space remains for item name
      * - Order # (1, 2, 3...) & [✓] PAID / [ ] PAID checkbox on every slip
      **************************************************************/
@@ -235,6 +236,30 @@
     <div id="ordersListContainer" class="flex flex-col gap-2"></div>
   </main>
 
+  <!-- PRINT MODE CHOICE MODAL: PACK vs DINE IN -->
+  <div id="printTypeModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
+    <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl border border-slate-200 animate-pop text-center">
+      <div class="text-xs font-extrabold uppercase tracking-wider text-slate-400">Select Order Type</div>
+      <h3 class="text-base font-extrabold text-slate-900 mt-0.5">Print 2 Slips</h3>
+      <div class="grid grid-cols-2 gap-3 mt-4">
+        <button type="button" onclick="confirmPrintWithOrderType('PACK')"
+          class="py-3.5 px-3 rounded-xl text-sm font-black bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-500/25 active:scale-95 transition flex flex-col items-center justify-center gap-1 cursor-pointer border-2 border-amber-600">
+          <span class="text-xl leading-none">📦</span>
+          <span>PACK</span>
+        </button>
+        <button type="button" onclick="confirmPrintWithOrderType('DINE IN')"
+          class="py-3.5 px-3 rounded-xl text-sm font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/25 active:scale-95 transition flex flex-col items-center justify-center gap-1 cursor-pointer border-2 border-indigo-700">
+          <span class="text-xl leading-none">🍽️</span>
+          <span>DINE IN</span>
+        </button>
+      </div>
+      <button type="button" onclick="closePrintTypeModal()"
+        class="mt-3 w-full py-1.5 rounded-xl text-xs font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition cursor-pointer">
+        Cancel
+      </button>
+    </div>
+  </div>
+
   <!-- YES / NO CONFIRMATION MODAL -->
   <div id="confirmModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-xs p-4">
     <div class="bg-white rounded-2xl max-w-xs w-full p-5 shadow-xl border border-slate-200 animate-pop text-center">
@@ -257,6 +282,275 @@
   <div id="thermalPrintRoot"></div>
 
   <script>
+    /**************************************************************
+     * COMPLETE MENU RATE CARD FROM POSTER (NO EXTRA CRUST/TOPPING ADDONS)
+     * Pizzas include (Regular), (Medium), (Large), (Giant) right in the name
+     **************************************************************/
+    const MENU_BY_PRICE = {
+      33: [
+        'Cheesy Dip',
+        'Spicy Dip',
+        'Tandoori Dip',
+        'Coke / Pepsi / Sprite / Dew'
+      ],
+      38: [
+        'Ice Cream Vanilla'
+      ],
+      43: [
+        'Ice Cream Vanilla (Chocolate)',
+        'Ice Cream Vanilla (Strawberry)',
+        'Ice Cream Vanilla (Butterscotch)',
+        'Ice Cream Vanilla (Blue Berry)'
+      ],
+      45: [
+        'Aloo Patty Burger'
+      ],
+      48: [
+        'Hot Tea'
+      ],
+      62: [
+        'Veg Burger',
+        'Veg Pocket',
+        'Fresh Lime Soda'
+      ],
+      65: [
+        'Mini Soya Pizza'
+      ],
+      67: [
+        'Hot Coffee'
+      ],
+      71: [
+        'Pub-Ji Burger',
+        'Paneer Pocket'
+      ],
+      76: [
+        'Cheesy Burger'
+      ],
+      81: [
+        'Juicy Corn Burger',
+        'Cold Sandwich',
+        'Salted Fries',
+        'Chocolava Cake'
+      ],
+      86: [
+        'Mexican Burger',
+        'Mini Onion Pizza'
+      ],
+      90: [
+        'Mini Capsicum Pizza',
+        'Mini Corn Pizza',
+        'Mini Pineapple Pizza',
+        'Masala Fries',
+        'Peri-Peri Fries'
+      ],
+      95: [
+        'Grilled Sandwich'
+      ],
+      100: [
+        'Paneer Burger',
+        'Garlic Bread',
+        'Chocolava Cake with Ice Cream'
+      ],
+      105: [
+        'Spicy Grilled Sandwich',
+        'Aloo Tikki Wrap',
+        'Mini Onion & Corn Pizza',
+        'Mini Soya & Corn Pizza',
+        'Mini Onion & Jalapenos Pizza',
+        'Mini Onion & Capsicum Pizza',
+        'Strawberry Shake',
+        'Chocolate Shake',
+        'Vanilla Shake',
+        'Oreo Shake',
+        'Butter Scotch Shake',
+        'Blue Berry Shake',
+        'Kit Kat Shake',
+        'Mint Mojito',
+        'Water Melon Mojito',
+        'Blue Virgin Mojito',
+        'Cold Coffee'
+      ],
+      110: [
+        'Single Cheese Pizza (Regular)',
+        'Mini Paneer & Onion Pizza',
+        'Mini Paneer & Capsicum Pizza',
+        'Mini Jalapeno & Pineapple Pizza',
+        'Cheese Loaded Fries'
+      ],
+      114: [
+        'Supreme Burger',
+        'Cheesy Grilled Sandwich',
+        'Red Pasta',
+        'White Pasta',
+        'Cheesy Wrap'
+      ],
+      119: [
+        'Potato Wedges'
+      ],
+      124: [
+        'Tandoori Pasta',
+        'Paneer Wrap',
+        'Mexican Wrap',
+        'Veg Salad'
+      ],
+      129: [
+        'Aloo Patty Burger (Combo)',
+        'Calzone',
+        'Veg Loaded Garlic Bread',
+        'Jumbo Pasta',
+        'Veg Taco'
+      ],
+      133: [
+        'Paneer Sandwich',
+        'Makhni Pasta'
+      ],
+      138: [
+        'Double Cheese Pizza (Regular)',
+        'Cheese & Mushroom Pizza (Regular)',
+        'Cheese & Corn Pizza (Regular)',
+        'Cheese & Tomato Pizza (Regular)',
+        'Sweet & Spicy Pasta',
+        'Paneer Salad'
+      ],
+      143: [
+        'Laden Garlic Bread',
+        'Mexican Salad'
+      ],
+      148: [
+        'Veg Burger (Combo)'
+      ],
+      152: [
+        'Makhani Paneer Pizza (Regular)',
+        'Tandoori Paneer Pizza (Regular)',
+        'Achari Pizza (Regular)',
+        'Farm Fresh Pizza (Regular)',
+        'Delight Pizza (Regular)'
+      ],
+      157: [
+        'Pub-Ji Burger (Combo)'
+      ],
+      162: [
+        'Cheesy Burger (Combo)'
+      ],
+      167: [
+        'Juicy Corn Burger (Combo)'
+      ],
+      171: [
+        'Mexican Burger (Combo)'
+      ],
+      181: [
+        'Mexican Pizza (Regular)',
+        'Classic Pizza (Regular)',
+        'Black & White Pizza (Regular)',
+        'Spicy Paneer Pizza (Regular)',
+        'Chilly Pizza (Regular)',
+        'Paneer Burger (Combo)'
+      ],
+      195: [
+        'Supreme Burger (Combo)'
+      ],
+      205: [
+        'Mix Veg. Pizza (Regular)',
+        'Veg. Supreme Pizza (Regular)',
+        'Laden Pizza (Regular)'
+      ],
+      219: [
+        'Single Cheese Pizza (Medium)'
+      ],
+      267: [
+        'Double Cheese Pizza (Medium)',
+        'Cheese & Mushroom Pizza (Medium)',
+        'Cheese & Corn Pizza (Medium)',
+        'Cheese & Tomato Pizza (Medium)'
+      ],
+      314: [
+        'Combo Any 4 Mini Single Topping Pizzas'
+      ],
+      333: [
+        'Makhani Paneer Pizza (Medium)',
+        'Tandoori Paneer Pizza (Medium)',
+        'Achari Pizza (Medium)',
+        'Farm Fresh Pizza (Medium)',
+        'Delight Pizza (Medium)'
+      ],
+      338: [
+        'Single Cheese Pizza (Large)'
+      ],
+      371: [
+        'Combo Any 4 Mini Double Topping Pizzas'
+      ],
+      381: [
+        'Double Cheese Pizza (Large)',
+        'Cheese & Mushroom Pizza (Large)',
+        'Cheese & Corn Pizza (Large)',
+        'Cheese & Tomato Pizza (Large)'
+      ],
+      395: [
+        'Mexican Pizza (Medium)',
+        'Classic Pizza (Medium)',
+        'Black & White Pizza (Medium)',
+        'Spicy Paneer Pizza (Medium)',
+        'Chilly Pizza (Medium)'
+      ],
+      457: [
+        'Single Cheese Pizza (Giant)',
+        'Mix Veg. Pizza (Medium)',
+        'Veg. Supreme Pizza (Medium)',
+        'Laden Pizza (Medium)'
+      ],
+      510: [
+        'Makhani Paneer Pizza (Large)',
+        'Tandoori Paneer Pizza (Large)',
+        'Achari Pizza (Large)',
+        'Farm Fresh Pizza (Large)',
+        'Delight Pizza (Large)'
+      ],
+      533: [
+        'Mexican Pizza (Large)',
+        'Classic Pizza (Large)',
+        'Black & White Pizza (Large)',
+        'Spicy Paneer Pizza (Large)',
+        'Chilly Pizza (Large)'
+      ],
+      543: [
+        'Double Cheese Pizza (Giant)',
+        'Cheese & Mushroom Pizza (Giant)',
+        'Cheese & Corn Pizza (Giant)',
+        'Cheese & Tomato Pizza (Giant)'
+      ],
+      576: [
+        'Mix Veg. Pizza (Large)',
+        'Veg. Supreme Pizza (Large)',
+        'Laden Pizza (Large)'
+      ],
+      681: [
+        'Makhani Paneer Pizza (Giant)',
+        'Tandoori Paneer Pizza (Giant)',
+        'Achari Pizza (Giant)',
+        'Farm Fresh Pizza (Giant)',
+        'Delight Pizza (Giant)'
+      ],
+      800: [
+        'Mexican Pizza (Giant)',
+        'Classic Pizza (Giant)',
+        'Black & White Pizza (Giant)',
+        'Spicy Paneer Pizza (Giant)',
+        'Chilly Pizza (Giant)'
+      ],
+      914: [
+        'Mix Veg. Pizza (Giant)',
+        'Veg. Supreme Pizza (Giant)',
+        'Laden Pizza (Giant)'
+      ]
+    };
+
+    function getMenuItemsForRate(rawAmount) {
+      const num = parseFloat(rawAmount);
+      if (isNaN(num) || num <= 0) return [];
+      const key = Math.round(num);
+      return MENU_BY_PRICE[key] || [];
+    }
+
     /**************************************************************
      * PWA MANIFEST & SERVICE WORKER REGISTRATION
      **************************************************************/
@@ -399,6 +693,9 @@
     let currentStatusFilter = 'all'; // 'all' | 'active' | 'paid' | 'completed'
     let intersectionObserver = null;
 
+    // Pending print order ID when choosing PACK vs DINE IN
+    let pendingPrintOrderId = null;
+
     function uid() {
       return 'id_' + Math.random().toString(36).substring(2, 9) + '_' + Date.now().toString(36);
     }
@@ -419,11 +716,6 @@
       });
     }
 
-    /**************************************************************
-     * ITEM BOX MODEL
-     * - taxable: ALWAYS true (5% GST) by default so no GST is ever lost!
-     * - qty: Number of units (default 1). Clicking + / - increments or decrements.
-     **************************************************************/
     function createBlankItemBox() {
       return {
         id: uid(),
@@ -443,6 +735,8 @@
         id: uid(),
         customerName: '',
         customerPhone: '',
+        cashGiven: '',
+        orderType: '', // 'PACK' or 'DINE IN'
         createdAt: formatTimeNow(),
         createdDate: formatDateNow(),
         themeIndex: themeIndex,
@@ -554,6 +848,8 @@
       state.tabs.forEach(tab => {
         if (!Array.isArray(tab.orders)) return;
         tab.orders.forEach(order => {
+          if (typeof order.cashGiven === 'undefined') order.cashGiven = '';
+          if (typeof order.orderType === 'undefined') order.orderType = '';
           if (!Array.isArray(order.items)) return;
           order.items.forEach(item => {
             if (!item.qty || item.qty < 1) item.qty = 1;
@@ -896,6 +1192,9 @@
 
       const numericVal = parseFloat(rawValue);
 
+      // Update rate-matched menu dropdown for this item box
+      updateItemRateDropdownDOM(order.id, item);
+
       const isLastBox = itemIndex === order.items.length - 1;
       if (isLastBox && rawValue.trim() !== '' && !isNaN(numericVal)) {
         const nextBox = createBlankItemBox();
@@ -909,6 +1208,57 @@
       updateSingleQtyAndLineTotalDOM(item);
       updateOrderLiveFooterDOM(order);
       updateTabSummaryStats(tab);
+    }
+
+    function updateItemRateDropdownDOM(orderId, item) {
+      const wrapper = document.getElementById(`item-menu-wrap-${item.id}`);
+      if (!wrapper) return;
+
+      const matches = getMenuItemsForRate(item.amount);
+      if (matches.length === 0) {
+        wrapper.innerHTML = '';
+        wrapper.classList.add('hidden');
+        return;
+      }
+
+      // If only 1 exact item matches this rate and name is currently empty, auto-fill it for convenience!
+      if (matches.length === 1 && !String(item.name || '').trim()) {
+        item.name = matches[0];
+        const nameInput = document.getElementById(`item-name-${item.id}`);
+        if (nameInput) nameInput.value = matches[0];
+      }
+
+      const optionsHTML = [
+        `<option value="">📋 Select ₹${Math.round(parseFloat(item.amount))} Item (${matches.length})...</option>`,
+        ...matches.map(m => `<option value="${escapeHtml(m)}" ${item.name === m ? 'selected' : ''}>${escapeHtml(m)}</option>`)
+      ].join('');
+
+      wrapper.classList.remove('hidden');
+      wrapper.innerHTML = `
+        <select
+          tabindex="-1"
+          onchange="handleMenuSelect('${orderId}', '${item.id}', this.value)"
+          class="w-full px-1.5 py-0.5 rounded border border-indigo-300 bg-indigo-50/90 text-[10px] font-bold text-indigo-950 focus:outline-none focus:border-indigo-600 cursor-pointer">
+          ${optionsHTML}
+        </select>
+      `;
+    }
+
+    function handleMenuSelect(orderId, itemId, selectedName) {
+      if (!selectedName) return;
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order || order.isCompleted) return;
+      const item = order.items.find(i => i.id === itemId);
+      if (!item) return;
+
+      item.name = selectedName;
+      const nameInput = document.getElementById(`item-name-${item.id}`);
+      if (nameInput) {
+        nameInput.value = selectedName;
+      }
+      saveState();
     }
 
     function changeItemQty(orderId, itemId, delta) {
@@ -998,6 +1348,44 @@
       if (!order) return;
       order[field] = value;
       saveState();
+    }
+
+    /**************************************************************
+     * CUSTOMER CASH GIVEN & RETURN CHANGE CALCULATION BOX
+     * Placed right after the Save button in open editing mode
+     **************************************************************/
+    function handleCashGivenInput(orderId, rawVal) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      order.cashGiven = rawVal;
+      saveState();
+      updateCashReturnDisplayDOM(order);
+    }
+
+    function updateCashReturnDisplayDOM(order) {
+      const returnEl = document.getElementById(`cash-return-val-${order.id}`);
+      if (!returnEl) return;
+
+      const totals = calculateOrderTotals(order);
+      const given = parseFloat(order.cashGiven);
+
+      if (isNaN(given) || given <= 0) {
+        returnEl.textContent = '₹0';
+        returnEl.className = 'text-sm font-extrabold font-mono-num text-slate-400';
+        return;
+      }
+
+      const diff = given - totals.grandTotal;
+      if (diff >= 0) {
+        returnEl.textContent = `₹${Math.round(diff)}`;
+        returnEl.className = 'text-sm font-extrabold font-mono-num text-emerald-700';
+      } else {
+        returnEl.textContent = `-₹${Math.round(Math.abs(diff))}`;
+        returnEl.className = 'text-sm font-extrabold font-mono-num text-rose-600';
+      }
     }
 
     function clearSingleItemBox(orderId, itemId) {
@@ -1139,19 +1527,70 @@
     }
 
     /**************************************************************
-     * ULTRA-MINIMAL 80mm THERMAL SLIP GENERATOR (2 SLIPS)
-     * 1. Zero "₹" symbols on receipt (plain numbers only)
-     * 2. Quantity box [×4] right next to amount so full right space is open for item name / pen
-     * 3. Order Number (#1, #2, #3...) prominently at top
-     * 4. Small checkbox + PAID ([✓] PAID or [ ] PAID) at top right & bottom
+     * PRINT BUTTON FLOW -> SELECT "PACK" OR "DINE IN" -> PRINT 2 SLIPS
+     * Prints ONLY the single chosen word ("PACK" or "DINE IN") on the slip!
      **************************************************************/
-    function buildMinimalSingleSlipHTML(order, orderNum) {
+    function printOrderSlips(orderId) {
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      pendingPrintOrderId = orderId;
+      const modal = document.getElementById('printTypeModal');
+      if (modal) {
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+      }
+    }
+
+    function closePrintTypeModal() {
+      const modal = document.getElementById('printTypeModal');
+      if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+      }
+      pendingPrintOrderId = null;
+    }
+
+    function confirmPrintWithOrderType(chosenType) {
+      const orderId = pendingPrintOrderId;
+      closePrintTypeModal();
+      if (!orderId) return;
+
+      const tab = getActiveTab();
+      if (!tab) return;
+      const orderIndex = tab.orders.findIndex(o => o.id === orderId);
+      if (orderIndex === -1) return;
+      const order = tab.orders[orderIndex];
+
+      order.orderType = chosenType; // 'PACK' or 'DINE IN'
+      saveState(true);
+
+      const orderNum = orderIndex + 1;
+      const slipHTML = buildMinimalSingleSlipHTML(order, orderNum, chosenType);
+      const tearDividerHTML = `
+        <div class="thermal-tear-zone">
+          <div class="thermal-tear-line"></div>
+        </div>
+      `;
+
+      const printRoot = document.getElementById('thermalPrintRoot');
+      if (printRoot) {
+        printRoot.innerHTML = slipHTML + tearDividerHTML + slipHTML;
+      }
+
+      window.print();
+    }
+
+    function buildMinimalSingleSlipHTML(order, orderNum, chosenType) {
       const totals = calculateOrderTotals(order);
       const customerName = (order.customerName || '').trim();
       const customerPhone = (order.customerPhone || '').trim();
       const timeStr = order.createdAt || formatTimeNow();
       const dateStr = order.createdDate || formatDateNow();
       const isPaid = Boolean(order.isPaid);
+      const typeLabel = chosenType || order.orderType || 'DINE IN';
 
       const validItems = (order.items || []).filter(item => {
         const val = parseFloat(item.amount);
@@ -1183,7 +1622,7 @@
               ${unitBreakdownHTML}
             </div>
 
-            <!-- Right Side: Maximum Open Space for Item Name or Pen Writing -->
+            <!-- Right Side: Item Name (with Pizza size Regular/Medium/Large/Giant) or Blank Space -->
             <div style="width: 69%; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word;">
               ${itemName ? escapeHtml(itemName) : '&nbsp;'}
             </div>
@@ -1202,10 +1641,13 @@
 
       return `
         <div class="thermal-slip-page">
-          <!-- Top Row: Big Order Number (#1, #2...) + Paid Checkbox + Date/Time -->
+          <!-- Top Row: Big Order Number (#1, #2...) + ONLY Selected Order Type (PACK or DINE IN) + Paid Checkbox -->
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-            <span style="font-size: 18px; font-weight: 900; border: 2px solid #000; padding: 0 6px; line-height: 1.2;">
+            <span style="font-size: 17px; font-weight: 900; border: 2px solid #000; padding: 0 5px; line-height: 1.2;">
               #${orderNum}
+            </span>
+            <span style="font-size: 15px; font-weight: 900; border: 2px solid #000; padding: 0 6px; line-height: 1.25; letter-spacing: 0.5px;">
+              ${escapeHtml(typeLabel)}
             </span>
             ${paidCheckboxHTML}
           </div>
@@ -1240,29 +1682,6 @@
           </div>
         </div>
       `;
-    }
-
-    function printOrderSlips(orderId) {
-      const tab = getActiveTab();
-      if (!tab) return;
-      const orderIndex = tab.orders.findIndex(o => o.id === orderId);
-      if (orderIndex === -1) return;
-      const order = tab.orders[orderIndex];
-      const orderNum = orderIndex + 1;
-
-      const slipHTML = buildMinimalSingleSlipHTML(order, orderNum);
-      const tearDividerHTML = `
-        <div class="thermal-tear-zone">
-          <div class="thermal-tear-line"></div>
-        </div>
-      `;
-
-      const printRoot = document.getElementById('thermalPrintRoot');
-      if (printRoot) {
-        printRoot.innerHTML = slipHTML + tearDividerHTML + slipHTML;
-      }
-
-      window.print();
     }
 
     /**************************************************************
@@ -1300,6 +1719,9 @@
       }
       if (grandEl) grandEl.textContent = `₹${totals.grandTotal}`;
       if (saveTotalEl) saveTotalEl.textContent = `₹${totals.grandTotal}`;
+
+      // Also keep the Return Change calculator updated live when items change!
+      updateCashReturnDisplayDOM(order);
     }
 
     function buildSingleItemBoxHTML(order, item, indexNumber, theme) {
@@ -1315,6 +1737,24 @@
       const qtyBadgeClass = qty > 1
         ? 'px-1.5 py-0.5 text-[11px] font-extrabold font-mono-num bg-indigo-600 text-white rounded select-none'
         : 'px-1 py-0.5 text-[10px] font-bold font-mono-num text-slate-700 select-none';
+
+      // Rate-based Menu Dropdown
+      const matches = getMenuItemsForRate(item.amount);
+      let dropdownHTML = '';
+      if (matches.length > 0) {
+        const optionsHTML = [
+          `<option value="">📋 Select ₹${Math.round(unitVal)} Item (${matches.length})...</option>`,
+          ...matches.map(m => `<option value="${escapeHtml(m)}" ${item.name === m ? 'selected' : ''}>${escapeHtml(m)}</option>`)
+        ].join('');
+        dropdownHTML = `
+          <select
+            tabindex="-1"
+            onchange="handleMenuSelect('${order.id}', '${item.id}', this.value)"
+            class="w-full px-1.5 py-0.5 rounded border border-indigo-300 bg-indigo-50/90 text-[10px] font-bold text-indigo-950 focus:outline-none focus:border-indigo-600 cursor-pointer">
+            ${optionsHTML}
+          </select>
+        `;
+      }
 
       return `
         <div id="item-box-${item.id}" class="shrink-0 w-[48%] sm:w-44 bg-white rounded-xl border-2 ${theme.boxBorder} p-1.5 shadow-2xs animate-pop flex flex-col justify-between">
@@ -1381,6 +1821,11 @@
                 +
               </button>
             </div>
+          </div>
+
+          <!-- Rate-Matched Menu Dropdown (Appears automatically when rate matches poster!) -->
+          <div id="item-menu-wrap-${item.id}" class="mt-1 ${matches.length > 0 ? '' : 'hidden'}">
+            ${dropdownHTML}
           </div>
 
           <!-- Bottom Strip: Item Name Input -->
@@ -1465,7 +1910,8 @@
       const isPaid = Boolean(order.isPaid);
 
       /**************************************************************
-       * VIEW 1: MERGED STATE (ULTRA-COMPACT ON COMPUTER SO 5-6 FIT EASILY)
+       * VIEW 1: MERGED STATE
+       * Shows ONLY the main total amount (₹totals.grandTotal) as requested!
        **************************************************************/
       if (order.isMerged) {
         const customerDisplay = order.customerName.trim() || `Order #${orderIdx + 1}`;
@@ -1500,7 +1946,7 @@
                 </div>
               </div>
 
-              <!-- Right: Paid Button + Delivered Button + Print + Delete + Total Box -->
+              <!-- Right: Paid Button + Delivered Button + Print + Delete + Main Total Box -->
               <div class="flex items-center gap-1.5 sm:gap-2 shrink-0 w-full sm:w-auto justify-between sm:justify-end pt-1.5 sm:pt-0 border-t sm:border-t-0 border-white/20" onclick="event.stopPropagation()">
                 
                 <!-- Paid Toggle Button -->
@@ -1535,9 +1981,9 @@
                   <span class="text-xs font-extrabold uppercase tracking-wide">Delivered</span>
                 </button>
 
-                <!-- Direct Print Button -->
+                <!-- Print Button (Opens Pack / Dine In choice) -->
                 <button type="button" onclick="printOrderSlips('${order.id}')"
-                  title="Direct Print 2 Slips"
+                  title="Print 2 Slips (Pack / Dine In)"
                   class="px-2.5 py-1.5 rounded-lg flex items-center gap-1 bg-white text-slate-900 border border-white/80 hover:bg-slate-100 text-xs font-black shadow-2xs cursor-pointer transition active:scale-95">
                   <span>🖨️</span>
                   <span class="hidden md:inline">Print</span>
@@ -1550,7 +1996,7 @@
                   🗑
                 </button>
 
-                <!-- Merged Total Box with Diagonal Line when Paid -->
+                <!-- Merged Main Total Box ONLY -->
                 <div class="${theme.mergedTotalBox} px-3 py-1 rounded-xl border text-right shrink-0 shadow-inner min-w-[76px]">
                   <div class="text-lg sm:text-xl font-extrabold font-mono-num leading-tight ${isPaid ? 'paid-diagonal-strike opacity-95' : ''}">
                     ₹${totals.grandTotal}
@@ -1564,11 +2010,26 @@
       }
 
       /**************************************************************
-       * VIEW 2: OPEN / EDITING STATE (COMPACT SO 4+ CARDS FIT ON SCREEN)
+       * VIEW 2: OPEN / EDITING STATE
+       * Includes Save Button + Cash Given & Change Return Box right after Save!
        **************************************************************/
       const itemsBoxesHTML = order.items
         .map((item, idx) => buildSingleItemBoxHTML(order, item, idx + 1, theme))
         .join('');
+
+      const givenNum = parseFloat(order.cashGiven);
+      let returnText = '₹0';
+      let returnColorClass = 'text-slate-400';
+      if (!isNaN(givenNum) && givenNum > 0) {
+        const diff = givenNum - totals.grandTotal;
+        if (diff >= 0) {
+          returnText = `₹${Math.round(diff)}`;
+          returnColorClass = 'text-emerald-700';
+        } else {
+          returnText = `-₹${Math.round(Math.abs(diff))}`;
+          returnColorClass = 'text-rose-600';
+        }
+      }
 
       return `
         <div id="order-card-${order.id}" class="rounded-xl border-2 ${theme.border} ${theme.bg} px-2.5 py-2 sm:px-3 sm:py-2 shadow-2xs">
@@ -1605,7 +2066,7 @@
                 ${escapeHtml(order.createdAt)}
               </span>
 
-              <!-- Quick Paid Checkbox right on Open Card too (in case customer pays immediately before printing) -->
+              <!-- Quick Paid Checkbox right on Open Card -->
               <button type="button" tabindex="-1" onclick="toggleOrderPaid(event, '${order.id}')"
                 title="Mark Paid if customer paid immediately"
                 class="px-2 py-0.5 rounded-md border flex items-center gap-1 text-xs font-bold cursor-pointer transition ${
@@ -1623,7 +2084,7 @@
                 Total: <span id="order-grand-${order.id}" class="font-extrabold">₹${totals.grandTotal}</span>
               </div>
               <button type="button" tabindex="-1" onclick="printOrderSlips('${order.id}')"
-                title="Direct Print 2 Slips"
+                title="Print 2 Slips (Pack / Dine In)"
                 class="px-2 py-0.5 rounded-md bg-white text-slate-800 border border-slate-300 hover:bg-slate-900 hover:text-white flex items-center gap-1 text-xs font-bold shrink-0 cursor-pointer transition">
                 <span>🖨️</span>
                 <span class="hidden sm:inline">Print</span>
@@ -1635,7 +2096,7 @@
             </div>
           </div>
 
-          <!-- Item Boxes Grid + Save Box -->
+          <!-- Item Boxes Grid + Save Box + Cash Given / Return Change Calculator Box -->
           <div id="items-row-${order.id}" class="flex items-stretch flex-wrap gap-1.5">
             ${itemsBoxesHTML}
 
@@ -1649,6 +2110,35 @@
                 </span>
               </button>
             </div>
+
+            <!-- Cash Given & Return Change Box (Right after Save Button) -->
+            <div id="cash-box-wrapper-${order.id}" class="shrink-0 w-[48%] sm:w-36 bg-white rounded-xl border-2 border-slate-300 p-1.5 shadow-2xs flex flex-col justify-between">
+              <div class="text-[10px] font-extrabold text-slate-500 uppercase tracking-tight flex items-center justify-between">
+                <span>Cash Given</span>
+                <span>Return</span>
+              </div>
+              <div class="relative flex items-center my-0.5">
+                <span class="absolute left-1.5 text-slate-400 font-bold text-xs select-none pointer-events-none">₹</span>
+                <input
+                  id="cash-given-${order.id}"
+                  type="number"
+                  inputmode="decimal"
+                  step="any"
+                  tabindex="-1"
+                  placeholder="Given..."
+                  value="${escapeHtml(String(order.cashGiven ?? ''))}"
+                  oninput="handleCashGivenInput('${order.id}', this.value)"
+                  class="w-full pl-4 pr-1.5 py-0.5 bg-slate-50 focus:bg-white rounded border border-slate-200 focus:border-slate-800 text-xs font-bold text-slate-900 font-mono-num placeholder:text-slate-300 focus:outline-none"
+                />
+              </div>
+              <div class="flex items-center justify-between bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200">
+                <span class="text-[10px] font-bold text-slate-500">ਮੋੜਨੇ:</span>
+                <span id="cash-return-val-${order.id}" class="text-sm font-extrabold font-mono-num ${returnColorClass}">
+                  ${returnText}
+                </span>
+              </div>
+            </div>
+
           </div>
 
         </div>
