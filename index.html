@@ -1929,29 +1929,29 @@
         const lineAmt = (unitAmt * qty).toFixed(0);
         const itemName = (item.name || '').trim();
 
-        const qtyBoxHTML = qty > 1
-          ? `<span style="display: inline-block; border: 1.5px solid #000; padding: 0 3px; font-size: 12px; font-weight: 900; line-height: 1.15;">×${qty}</span>`
-          : '';
-
         const unitBreakdownHTML = qty > 1
           ? `<div style="font-size: 10px; font-weight: 700; margin-top: 1px;">(${qty}×${unitAmt.toFixed(0)})</div>`
           : '';
 
+        const bigQtyBoxAfterNameHTML = qty > 1
+          ? `<span style="display: inline-block; border: 2px solid #000; padding: 1px 6px; font-size: 15px; font-weight: 900; line-height: 1.15; margin-left: 6px; shrink: 0;">×${qty}</span>`
+          : '';
+
         return `
-          <div style="display: flex; align-items: baseline; padding: 5px 0; border-bottom: 1px dotted #000;">
-            <!-- Left Side: Amount & Tightly Attached Qty Box -->
-            <div style="width: 31%; padding-right: 5px; line-height: 1.15;">
-              <div style="display: flex; align-items: center; gap: 3px; flex-wrap: nowrap;">
-                <span style="font-size: 15px; font-weight: 900;">${lineAmt}</span>
-                ${qtyBoxHTML}
-              </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px dotted #000;">
+            <!-- Left Side: Rate / Amount Only (Compact width with comfortable 8px gap before Item Name) -->
+            <div style="width: 22%; padding-right: 8px; line-height: 1.15; flex-shrink: 0;">
+              <div style="font-size: 15px; font-weight: 900;">${lineAmt}</div>
               ${unitBreakdownHTML}
             </div>
 
-            <!-- Right Side: Item Name (with Pizza size Regular/Medium/Large/Giant) or Blank Space -->
-            <div style="width: 69%; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word;">
+            <!-- Middle: Item Name shifted closer to Rate -->
+            <div style="flex: 1; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word; line-height: 1.25;">
               ${itemName ? escapeHtml(itemName) : '&nbsp;'}
             </div>
+
+            <!-- Right Side After Item Name: Large Clear Quantity Box -->
+            ${bigQtyBoxAfterNameHTML}
           </div>
         `;
       }).join('');
@@ -1995,8 +1995,8 @@
           <div>
             ${itemsRowsHTML || `
               <div style="display: flex; align-items: baseline; padding: 6px 0; border-bottom: 1px dotted #000;">
-                <div style="width: 31%; font-size: 15px; font-weight: 900;">0</div>
-                <div style="width: 69%; min-height: 20px;">&nbsp;</div>
+                <div style="width: 22%; padding-right: 8px; font-size: 15px; font-weight: 900;">0</div>
+                <div style="flex: 1; min-height: 20px;">&nbsp;</div>
               </div>
             `}
           </div>
