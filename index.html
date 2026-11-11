@@ -882,10 +882,125 @@
       return !isNaN(q) && q >= 1 ? q : 1;
     }
 
+    const BOGO_ELIGIBLE_NAMES = [
+      'Makhani Paneer Pizza', 'Tandoori Paneer Pizza', 'Achari Pizza', 'Farm Fresh Pizza', 'Delight Pizza',
+      'Mexican Pizza', 'Classic Pizza', 'Black & White Pizza', 'Spicy Paneer Pizza', 'Chilly Pizza',
+      'Mix Veg. Pizza', 'Veg. Supreme Pizza', 'Laden Pizza'
+    ];
+
+    const BOGO_PIZZA_RATES = {
+      333: { cat: 'Veg 1', size: 'Medium' },
+      395: { cat: 'Veg 2', size: 'Medium' },
+      457: { cat: 'Veg 3', size: 'Medium' },
+      510: { cat: 'Veg 1', size: 'Large' },
+      533: { cat: 'Veg 2', size: 'Large' },
+      576: { cat: 'Veg 3', size: 'Large' },
+      681: { cat: 'Veg 1', size: 'Giant' },
+      800: { cat: 'Veg 2', size: 'Giant' },
+      914: { cat: 'Veg 3', size: 'Giant' }
+    };
+
+    function getBogoPizzaInfo(item) {
+      const amt = parseFloat(item?.amount);
+      if (isNaN(amt) || amt <= 0) return null;
+      const name = String(item?.name || '').trim();
+      if (name.includes('Single Cheese')) return null;
+
+      for (let i = 0; i < BOGO_ELIGIBLE_NAMES.length; i++) {
+        const bn = BOGO_ELIGIBLE_NAMES[i];
+        if (name.includes(bn)) {
+          if (name.includes('(Medium)') || amt === 333 || amt === 395 || amt === 457) {
+            return { size: 'Medium', price: amt, name: bn };
+          }
+          if (name.includes('(Large)') || amt === 510 || amt === 533 || amt === 576) {
+            return { size: 'Large', price: amt, name: bn };
+          }
+          if (name.includes('(Giant)') || amt === 681 || amt === 800 || amt === 914) {
+            return { size: 'Giant', price: amt, name: bn };
+          }
+        }
+      }
+
+      const match = BOGO_PIZZA_RATES[amt];
+      if (match) {
+        return { size: match.size, price: amt, name: name || (match.cat + ' Pizza') };
+      }
+      return null;
+    }
+
+    function calculateOrderBOGO(order) {
+      if (!order || !order.items) {
+        return { eligiblePairsCount: 0, totalBogoDiscount: 0, freeUnitsMap: {} };
+      }
+
+      const freeUnitsMap = {};
+      let eligiblePairsCount = 0;
+      let totalBogoDiscount = 0;
+
+      const sizeBuckets = { Medium: [], Large: [], Giant: [] };
+
+      order.items.forEach(item => {
+        const info = getBogoPizzaInfo(item);
+        if (!info) return;
+        const qty = getItemQty(item);
+        for (let u = 0; u < qty; u++) {
+          sizeBuckets[info.size].push({
+            itemId: item.id,
+            price: info.price,
+            info
+          });
+        }
+      });
+
+      ['Medium', 'Large', 'Giant'].forEach(size => {
+        const list = sizeBuckets[size];
+        if (list.length >= 2) {
+          const freeCount = Math.floor(list.length / 2);
+          eligiblePairsCount += freeCount;
+
+          // Customer pays for higher-priced pizza, lowest-priced pizza of same size is eligible to be FREE
+          list.sort((a, b) => b.price - a.price);
+
+          const freeItems = list.slice(list.length - freeCount);
+          freeItems.forEach(freeOne => {
+            totalBogoDiscount += freeOne.price;
+            if (!freeUnitsMap[freeOne.itemId]) {
+              freeUnitsMap[freeOne.itemId] = { freeQty: 0, discountAmount: 0 };
+            }
+            freeUnitsMap[freeOne.itemId].freeQty += 1;
+            freeUnitsMap[freeOne.itemId].discountAmount += freeOne.price;
+          });
+        }
+      });
+
+      return {
+        eligiblePairsCount,
+        totalBogoDiscount,
+        freeUnitsMap
+      };
+    }
+
     function calculateOrderTotals(order) {
       if (!order || !order.items) {
-        return { validCount: 0, totalUnits: 0, subtotal: 0, taxableSubtotal: 0, rawGst: 0, roundOff: 0, grandTotal: 0 };
+        return {
+          validCount: 0,
+          totalUnits: 0,
+          subtotal: 0,
+          grossSubtotal: 0,
+          bogoDiscount: 0,
+          taxableSubtotal: 0,
+          rawGst: 0,
+          roundOff: 0,
+          grandTotal: 0,
+          bogoInfo: { eligiblePairsCount: 0, totalBogoDiscount: 0, freeUnitsMap: {} },
+          isBogoActive: false
+        };
       }
+
+      const bogo = calculateOrderBOGO(order);
+      // Offer is optional (OFF by default, ON when user activates the toggle inside the pizza box)
+      const isBogoActive = Boolean(order.bogoEnabled) && bogo.eligiblePairsCount > 0;
+      const bogoDiscount = isBogoActive ? bogo.totalBogoDiscount : 0;
 
       let validCount = 0;
       let totalUnits = 0;
@@ -907,19 +1022,26 @@
         }
       }
 
-      const rawGst = taxableSubtotal * 0.05;
-      const exactTotal = subtotal + rawGst;
+      const finalSubtotal = Math.max(0, subtotal - bogoDiscount);
+      const finalTaxable = Math.max(0, taxableSubtotal - bogoDiscount);
+
+      const rawGst = finalTaxable * 0.05;
+      const exactTotal = finalSubtotal + rawGst;
       const grandTotal = Math.round(exactTotal);
       const roundOff = grandTotal - exactTotal;
 
       return {
         validCount,
         totalUnits,
-        subtotal,
-        taxableSubtotal,
+        subtotal: finalSubtotal,
+        grossSubtotal: subtotal,
+        bogoDiscount,
+        taxableSubtotal: finalTaxable,
         rawGst,
         roundOff,
-        grandTotal
+        grandTotal,
+        bogoInfo: bogo,
+        isBogoActive
       };
     }
 
@@ -1277,7 +1399,7 @@
       item.amount = String(entry.price);
 
       // Update the single merged box UI so it shows the rate and the full-width bottom item strip cleanly
-      syncSmartUnifiedBoxUI(order.id, item, false);
+      syncAllOrderItemsUI(order.id, null);
 
       // If this was the last box in the order, append a new blank box automatically
       const isLastBox = itemIndex === order.items.length - 1;
@@ -1431,7 +1553,7 @@
         item.name = '';
         item.qty = 1;
         closeItemMenuPopover();
-        syncSmartUnifiedBoxUI(orderId, item, true);
+        syncAllOrderItemsUI(orderId, item.id);
         saveState();
         updateOrderLiveFooterDOM(order);
         updateTabSummaryStats(tab);
@@ -1467,7 +1589,7 @@
           appendNewItemBoxToDOM(order, nextBox);
         }
 
-        syncSmartUnifiedBoxUI(orderId, item, true);
+        syncAllOrderItemsUI(orderId, item.id);
         if (popoverState.isOpen && popoverState.itemId === itemId) {
           positionPopoverUnderItemBox(itemId);
         }
@@ -1487,7 +1609,7 @@
         closeItemMenuPopover();
       }
 
-      syncSmartUnifiedBoxUI(orderId, item, true);
+      syncAllOrderItemsUI(orderId, item.id);
       if (popoverState.isOpen && popoverState.itemId === itemId) {
         positionPopoverUnderItemBox(itemId);
       }
@@ -1513,26 +1635,87 @@
       }
     }
 
+    function syncAllOrderItemsUI(orderId, activeTypingItemId = null) {
+      const tab = getActiveTab();
+      const order = tab?.orders.find(o => o.id === orderId);
+      if (!order || !order.items) return;
+      order.items.forEach(it => {
+        syncSmartUnifiedBoxUI(orderId, it, it.id === activeTypingItemId);
+      });
+    }
+
     function syncSmartUnifiedBoxUI(orderId, item, skipInputValueUpdate = false) {
       const tab = getActiveTab();
       const order = tab?.orders.find(o => o.id === orderId);
       const theme = ORDER_THEMES[(order?.themeIndex || 0) % ORDER_THEMES.length];
 
+      const boxEl = document.getElementById(`item-box-${item.id}`);
+      const topBarEl = document.getElementById(`item-top-bar-${item.id}`);
       const inputEl = document.getElementById(`item-input-${item.id}`);
       const rupeePrefixEl = document.getElementById(`rupee-prefix-${item.id}`);
       const lineTotalEl = document.getElementById(`item-line-total-${item.id}`);
+      const bogoBtnEl = document.getElementById(`item-bogo-btn-${item.id}`);
       const qtyBadge = document.getElementById(`qty-badge-${item.id}`);
+      const qtyWrapperEl = document.getElementById(`qty-wrapper-${item.id}`);
+      const topControlsEl = document.getElementById(`top-controls-${item.id}`);
       const bottomBarEl = document.getElementById(`item-bottom-bar-${item.id}`);
       const bottomNameTextEl = document.getElementById(`item-bottom-name-${item.id}`);
       const bottomDdBadgeEl = document.getElementById(`item-bottom-dd-badge-${item.id}`);
 
       const qty = getItemQty(item);
-      const unitVal = parseFloat(item.amount);
+      const rawAmtStr = String(item.amount ?? '').trim();
+      const rawNameStr = String(item.name ?? '').trim();
+      const unitVal = parseFloat(rawAmtStr);
       const hasValidAmount = !isNaN(unitVal) && unitVal > 0;
-      const hasName = String(item.name || '').trim().length > 0;
+      const hasName = rawNameStr.length > 0;
       const rateMatchesCount = getCatalogItemsByRate(item.amount).length;
 
-      // Update Input field value & styling if triggered externally (like picking from menu)
+      // Box is empty ONLY when no data is entered in it at all
+      const isEmpty = rawAmtStr === '' && rawNameStr === '';
+
+      // Update Box width & padding dynamically: super compact (w-20 sm:w-24 p-1 self-start) when empty,
+      // expanding to (w-[48%] sm:w-48 p-1.5 self-start) ONLY when data is entered!
+      if (boxEl) {
+        if (isEmpty) {
+          boxEl.classList.remove('w-[48%]', 'sm:w-48', 'p-1.5');
+          boxEl.classList.add('w-20', 'sm:w-24', 'p-1', 'self-start');
+        } else {
+          boxEl.classList.remove('w-20', 'sm:w-24', 'p-1');
+          boxEl.classList.add('w-[48%]', 'sm:w-48', 'p-1.5', 'self-start');
+        }
+      }
+
+      if (topBarEl) {
+        if (isEmpty) {
+          topBarEl.classList.remove('mb-1');
+          topBarEl.classList.add('mb-0.5');
+        } else {
+          topBarEl.classList.remove('mb-0.5');
+          topBarEl.classList.add('mb-1');
+        }
+      }
+
+      // Hide or show top tax & delete controls
+      if (topControlsEl) {
+        if (isEmpty) {
+          topControlsEl.classList.add('hidden');
+        } else {
+          topControlsEl.classList.remove('hidden');
+        }
+      }
+
+      // Hide or show Quantity controls
+      if (qtyWrapperEl) {
+        if (isEmpty) {
+          qtyWrapperEl.classList.add('hidden');
+          qtyWrapperEl.classList.remove('flex');
+        } else {
+          qtyWrapperEl.classList.remove('hidden');
+          qtyWrapperEl.classList.add('flex');
+        }
+      }
+
+      // Update Input field value & styling
       if (inputEl && !skipInputValueUpdate) {
         inputEl.value = hasValidAmount ? String(item.amount) : (hasName ? item.name : '');
       }
@@ -1541,19 +1724,64 @@
       const inputIsNumericMode = currentInputVal === '' || isPureNumericInput(currentInputVal);
 
       if (rupeePrefixEl && inputEl) {
-        if (inputIsNumericMode) {
+        if (isEmpty) {
+          rupeePrefixEl.classList.add('hidden');
+          inputEl.className = `w-full px-1 py-0.5 rounded-md text-center text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-[10px] placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`;
+          inputEl.placeholder = '+ ₹/Item';
+        } else if (inputIsNumericMode) {
           rupeePrefixEl.classList.remove('hidden');
           inputEl.className = `w-full pl-5 pr-1.5 py-1 rounded-lg text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`;
+          inputEl.placeholder = '0 or Item...';
         } else {
           rupeePrefixEl.classList.add('hidden');
           inputEl.className = `w-full px-2 py-1 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`;
+          inputEl.placeholder = '0 or Item...';
         }
       }
 
-      // Update Top Line Total badge (only when qty > 1)
+      // Check BOGO eligibility & active status for THIS specific pizza box
+      const totals = order ? calculateOrderTotals(order) : null;
+      const bogo = totals?.bogoInfo;
+      const isBogoActive = Boolean(totals?.isBogoActive);
+      const eligibleInfo = bogo?.freeUnitsMap?.[item.id] || null;
+      const eligibleFreeQty = eligibleInfo ? eligibleInfo.freeQty : 0;
+      const eligibleDiscount = eligibleInfo ? eligibleInfo.discountAmount : 0;
+      const activeFreeQty = isBogoActive ? eligibleFreeQty : 0;
+
+      // Update BOGO Toggle Button inside THIS pizza box's top bar
+      if (bogoBtnEl) {
+        if (eligibleFreeQty > 0 && !isEmpty) {
+          bogoBtnEl.classList.remove('hidden');
+          bogoBtnEl.classList.add('inline-flex');
+          bogoBtnEl.className = `inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold cursor-pointer transition select-none shrink-0 ${
+            isBogoActive
+              ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+              : 'bg-amber-100 text-amber-950 border-amber-400 hover:bg-amber-200'
+          }`;
+          bogoBtnEl.innerHTML = `
+            <span>🎁 1+1:</span>
+            <span class="px-1 rounded-xs text-[9px] font-black uppercase ${
+              isBogoActive ? 'bg-white text-emerald-700' : 'bg-white/90 text-amber-900'
+            }">${isBogoActive ? `ON -₹${eligibleDiscount}` : 'OFF'}</span>
+          `;
+        } else {
+          bogoBtnEl.classList.add('hidden');
+          bogoBtnEl.classList.remove('inline-flex');
+          bogoBtnEl.innerHTML = '';
+        }
+      }
+
+      // Update Top Line Total badge
       if (lineTotalEl) {
-        if (hasValidAmount && qty > 1) {
-          lineTotalEl.textContent = `= ₹${(unitVal * qty).toFixed(0)}`;
+        const showLineTotal = hasValidAmount && (qty > 1 || activeFreeQty > 0);
+        if (showLineTotal) {
+          if (activeFreeQty > 0) {
+            lineTotalEl.textContent = activeFreeQty === qty ? '₹0 FREE' : `= ₹${((qty - activeFreeQty) * unitVal).toFixed(0)}`;
+            lineTotalEl.className = 'text-[10px] font-extrabold font-mono-num text-emerald-700 bg-emerald-50 px-1 rounded truncate';
+          } else {
+            lineTotalEl.textContent = `= ₹${(unitVal * qty).toFixed(0)}`;
+            lineTotalEl.className = 'text-[10px] font-extrabold font-mono-num text-indigo-700 bg-indigo-50 px-1 rounded truncate';
+          }
           lineTotalEl.classList.remove('hidden');
         } else {
           lineTotalEl.textContent = '';
@@ -1571,7 +1799,7 @@
 
       // Update Full-Width Bottom Item Name + Dropdown Strip below the amount
       if (bottomBarEl && bottomNameTextEl && bottomDdBadgeEl) {
-        const showBottomBar = hasName || rateMatchesCount > 0;
+        const showBottomBar = !isEmpty && (hasName || rateMatchesCount > 0);
         if (showBottomBar) {
           bottomBarEl.classList.remove('hidden');
           bottomBarEl.classList.add('flex');
@@ -1630,7 +1858,7 @@
       item.qty = nextQty;
 
       saveState();
-      syncSmartUnifiedBoxUI(orderId, item, true);
+      syncAllOrderItemsUI(orderId, item.id);
       updateOrderLiveFooterDOM(order);
       updateTabSummaryStats(tab);
     }
@@ -1923,18 +2151,35 @@
         return !isNaN(val) && val > 0;
       });
 
+      const bogo = totals.bogoInfo;
+      const isBogoActive = totals.isBogoActive;
+
       const itemsRowsHTML = validItems.map(item => {
         const unitAmt = parseFloat(item.amount);
         const qty = getItemQty(item);
-        const lineAmt = (unitAmt * qty).toFixed(0);
+        const freeInfo = isBogoActive ? bogo.freeUnitsMap[item.id] : null;
+        const freeQty = freeInfo ? freeInfo.freeQty : 0;
+        const chargedQty = Math.max(0, qty - freeQty);
+        const lineAmt = (unitAmt * chargedQty).toFixed(0);
         const itemName = (item.name || '').trim();
 
-        const unitBreakdownHTML = qty > 1
-          ? `<div style="font-size: 10px; font-weight: 700; margin-top: 1px;">(${qty}×${unitAmt.toFixed(0)})</div>`
+        let unitBreakdownHTML = '';
+        if (freeQty > 0) {
+          if (freeQty === qty) {
+            unitBreakdownHTML = '<div style="font-size: 10px; font-weight: 900; color: #000; margin-top: 1px;">(1+1 FREE)</div>';
+          } else {
+            unitBreakdownHTML = '<div style="font-size: 10px; font-weight: 700; margin-top: 1px;">(' + chargedQty + '×' + unitAmt.toFixed(0) + ' + ' + freeQty + ' FREE)</div>';
+          }
+        } else if (qty > 1) {
+          unitBreakdownHTML = '<div style="font-size: 10px; font-weight: 700; margin-top: 1px;">(' + qty + '×' + unitAmt.toFixed(0) + ')</div>';
+        }
+
+        const bogoTagHTML = freeQty > 0
+          ? '<span style="display: inline-block; font-size: 11px; font-weight: 900; border: 1.5px solid #000; padding: 0 4px; margin-left: 4px; letter-spacing: 0.5px;">1+1 FREE</span>'
           : '';
 
         const bigQtyBoxAfterNameHTML = qty > 1
-          ? `<span style="display: inline-block; border: 2px solid #000; padding: 1px 6px; font-size: 15px; font-weight: 900; line-height: 1.15; margin-left: 6px; shrink: 0;">×${qty}</span>`
+          ? '<span style="display: inline-block; border: 2px solid #000; padding: 1px 6px; font-size: 15px; font-weight: 900; line-height: 1.15; margin-left: 6px; shrink: 0;">×' + qty + '</span>'
           : '';
 
         return `
@@ -1947,7 +2192,7 @@
 
             <!-- Middle: Item Name shifted closer to Rate -->
             <div style="flex: 1; font-size: 14px; font-weight: 700; text-align: left; min-height: 20px; word-break: break-word; line-height: 1.25;">
-              ${itemName ? escapeHtml(itemName) : '&nbsp;'}
+              ${itemName ? escapeHtml(itemName) : '&nbsp;'}${bogoTagHTML}
             </div>
 
             <!-- Right Side After Item Name: Large Clear Quantity Box -->
@@ -1964,6 +2209,13 @@
           <span>PAID</span>
         </span>
       `;
+
+      const bogoDiscountRowHTML = totals.bogoDiscount > 0 ? `
+        <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; font-weight: 900; padding: 4px 0; border-bottom: 1px dotted #000;">
+          <span>1+1 FREE BOGO OFFER</span>
+          <span>- ${totals.bogoDiscount}</span>
+        </div>
+      ` : '';
 
       return `
         <div class="thermal-slip-page">
@@ -2000,6 +2252,9 @@
               </div>
             `}
           </div>
+
+          <!-- BOGO Discount Row if applicable -->
+          ${bogoDiscountRowHTML}
 
           <!-- Total Row (No ₹ symbol) -->
           <div style="display: flex; justify-content: space-between; align-items: baseline; font-size: 17px; font-weight: 900; padding-top: 5px; margin-top: 2px; border-top: 2px solid #000;">
@@ -2049,26 +2304,59 @@
       updateCashReturnDisplayDOM(order);
     }
 
-    /**************************************************************
-     * SINGLE UNIFIED SMART ITEM BOX HTML
-     * 1. Entire box is clickable (`onclick="focusItemBoxOnEmptySpaceClick(...)"` + `cursor-text`)
-     *    so clicking ANY empty area inside the box immediately puts the cursor in the search/rate box!
-     * 2. Middle row uses `flex-1 flex items-center` so even when a neighboring box grows taller
-     *    due to a long item name, the input & +/- stay dead-center in the middle (never pushed to bottom).
-     * 3. Search/Rate input has a distinct color-coded border (`theme.inputOutline`) so it's always obvious where to type.
-     **************************************************************/
+    function toggleOrderBOGO(event, orderId) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      const tab = getActiveTab();
+      if (!tab) return;
+      const order = tab.orders.find(o => o.id === orderId);
+      if (!order) return;
+
+      order.bogoEnabled = !Boolean(order.bogoEnabled);
+
+      saveState(true);
+      syncAllOrderItemsUI(orderId, null);
+      updateOrderLiveFooterDOM(order);
+      updateTabSummaryStats(tab);
+    }
+
     function buildSingleItemBoxHTML(order, item, indexNumber, theme) {
       const isTaxable = item.taxable !== false;
       const qty = getItemQty(item);
-      const unitVal = parseFloat(item.amount);
+      const rawAmtStr = String(item.amount ?? '').trim();
+      const rawNameStr = String(item.name ?? '').trim();
+      const unitVal = parseFloat(rawAmtStr);
       const hasValidAmount = !isNaN(unitVal) && unitVal > 0;
-      const hasName = String(item.name || '').trim().length > 0;
+      const hasName = rawNameStr.length > 0;
       const rateMatchesCount = getCatalogItemsByRate(item.amount).length;
 
+      // Box stays super-compact until data is actually typed/filled into it
+      const isEmpty = rawAmtStr === '' && rawNameStr === '';
       const displayValue = hasValidAmount ? String(item.amount) : (hasName ? item.name : '');
       const isNumericMode = displayValue === '' || isPureNumericInput(displayValue);
-      const showLineTotal = hasValidAmount && qty > 1;
-      const showBottomBar = hasName || rateMatchesCount > 0;
+      const showBottomBar = !isEmpty && (hasName || rateMatchesCount > 0);
+
+      const totals = calculateOrderTotals(order);
+      const bogo = totals.bogoInfo;
+      const isBogoActive = Boolean(totals.isBogoActive);
+      const eligibleInfo = bogo.freeUnitsMap[item.id] || null;
+      const eligibleFreeQty = eligibleInfo ? eligibleInfo.freeQty : 0;
+      const eligibleDiscount = eligibleInfo ? eligibleInfo.discountAmount : 0;
+      const activeFreeQty = isBogoActive ? eligibleFreeQty : 0;
+
+      const showLineTotal = hasValidAmount && (qty > 1 || activeFreeQty > 0);
+      let lineTotalText = '';
+      if (activeFreeQty > 0) {
+        if (activeFreeQty === qty) {
+          lineTotalText = '₹0 FREE';
+        } else {
+          lineTotalText = `= ₹${((qty - activeFreeQty) * unitVal).toFixed(0)}`;
+        }
+      } else if (hasValidAmount && qty > 1) {
+        lineTotalText = `= ₹${(unitVal * qty).toFixed(0)}`;
+      }
 
       const taxPillClass = isTaxable
         ? 'bg-emerald-100 text-emerald-800 border-emerald-300'
@@ -2078,21 +2366,45 @@
         ? 'px-1.5 py-0.5 text-[11px] font-extrabold font-mono-num bg-indigo-600 text-white rounded select-none'
         : 'px-1 py-0.5 text-[10px] font-bold font-mono-num text-slate-700 select-none';
 
+      const boxSizeClass = isEmpty
+        ? 'w-20 sm:w-24 p-1 self-start'
+        : 'w-[48%] sm:w-48 p-1.5 self-start';
+
+      const bogoToggleBtnClass = (eligibleFreeQty > 0 && !isEmpty)
+        ? `inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold cursor-pointer transition select-none shrink-0 ${
+            isBogoActive
+              ? 'bg-emerald-600 text-white border-emerald-700 shadow-2xs'
+              : 'bg-amber-100 text-amber-950 border-amber-400 hover:bg-amber-200'
+          }`
+        : 'hidden';
+
       return `
         <div
           id="item-box-${item.id}"
           onclick="focusItemBoxOnEmptySpaceClick(event, '${item.id}')"
-          class="shrink-0 w-[48%] sm:w-48 bg-white rounded-xl border-2 ${theme.boxBorder} p-1.5 shadow-2xs animate-pop flex flex-col cursor-text">
+          class="shrink-0 ${boxSizeClass} bg-white rounded-xl border-2 ${theme.boxBorder} shadow-2xs animate-pop flex flex-col cursor-text">
           
-          <!-- Top Bar: # + Line Total (when qty > 1) + 5%/0% Toggle + Clear -->
-          <div class="flex items-center justify-between gap-1 mb-1">
-            <div class="flex items-center gap-1 min-w-0">
+          <!-- Top Bar: # + BOGO Offer Toggle Button (right inside the pizza box where offer applies!) + Line Total + 5%/0% Toggle + Clear -->
+          <div id="item-top-bar-${item.id}" class="flex items-center justify-between gap-1 ${isEmpty ? 'mb-0.5' : 'mb-1'}">
+            <div class="flex items-center gap-1 min-w-0 flex-wrap">
               <span class="text-[10px] font-bold px-1 rounded ${theme.badge} shrink-0">#${indexNumber}</span>
-              <span id="item-line-total-${item.id}" class="${showLineTotal ? '' : 'hidden'} text-[10px] font-extrabold font-mono-num text-indigo-700 bg-indigo-50 px-1 rounded truncate">
-                ${showLineTotal ? `= ₹${(unitVal * qty).toFixed(0)}` : ''}
+              <button
+                type="button"
+                tabindex="-1"
+                id="item-bogo-btn-${item.id}"
+                onclick="toggleOrderBOGO(event, '${order.id}')"
+                title="1+1 Free Pizza Offer — Click to turn ON or OFF"
+                class="${bogoToggleBtnClass}">
+                <span>🎁 1+1:</span>
+                <span class="px-1 rounded-xs text-[9px] font-black uppercase ${
+                  isBogoActive ? 'bg-white text-emerald-700' : 'bg-white/90 text-amber-900'
+                }">${isBogoActive ? `ON -₹${eligibleDiscount}` : 'OFF'}</span>
+              </button>
+              <span id="item-line-total-${item.id}" class="${showLineTotal ? '' : 'hidden'} text-[10px] font-extrabold font-mono-num ${activeFreeQty > 0 ? 'text-emerald-700 bg-emerald-50' : 'text-indigo-700 bg-indigo-50'} px-1 rounded truncate">
+                ${lineTotalText}
               </span>
             </div>
-            <div class="flex items-center gap-0.5 shrink-0">
+            <div id="top-controls-${item.id}" class="flex items-center gap-0.5 shrink-0 ${isEmpty ? 'hidden' : ''}">
               <button type="button"
                 tabindex="-1"
                 id="tax-btn-${item.id}"
@@ -2110,29 +2422,31 @@
             </div>
           </div>
 
-          <!-- Vertically Centered Middle Row (flex-1 flex items-center): Input & Qty always stay in the center of the box! -->
+          <!-- Vertically Centered Middle Row: Input & Qty -->
           <div class="flex-1 flex items-center gap-1 my-auto py-0.5">
             <div class="relative flex items-center flex-1 min-w-0">
-              <span id="rupee-prefix-${item.id}" class="${isNumericMode ? '' : 'hidden'} absolute left-2 text-slate-500 font-bold text-xs select-none pointer-events-none">₹</span>
+              <span id="rupee-prefix-${item.id}" class="${isNumericMode && !isEmpty ? '' : 'hidden'} absolute left-2 text-slate-500 font-bold text-xs select-none pointer-events-none">₹</span>
               <input
                 id="item-input-${item.id}"
                 type="text"
                 autocomplete="off"
-                placeholder="0 or Item..."
+                placeholder="${isEmpty ? '+ ₹/Item' : '0 or Item...'}"
                 value="${escapeHtml(displayValue)}"
                 onfocus="handleSmartBoxFocus('${order.id}', '${item.id}')"
                 oninput="handleSmartBoxInput('${order.id}', '${item.id}', this.value)"
                 onkeydown="handleSmartBoxKeyDown(event, '${order.id}', '${item.id}')"
                 class="${
-                  isNumericMode
-                    ? `w-full pl-5 pr-1.5 py-1 rounded-lg text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
-                    : `w-full px-2 py-1 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
+                  isEmpty
+                    ? `w-full px-1 py-0.5 rounded-md text-center text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-[10px] placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
+                    : isNumericMode
+                      ? `w-full pl-5 pr-1.5 py-1 rounded-lg text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
+                      : `w-full px-2 py-1 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
                 }"
               />
             </div>
 
-            <!-- Quantity - / + Controls -->
-            <div class="flex items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5 shrink-0">
+            <!-- Quantity - / + Controls (Hidden when box is empty) -->
+            <div id="qty-wrapper-${item.id}" class="${isEmpty ? 'hidden' : 'flex'} items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5 shrink-0">
               <button type="button"
                 tabindex="-1"
                 onclick="changeItemQty('${order.id}', '${item.id}', -1)"
@@ -2254,8 +2568,15 @@
               <!-- Left: Order # + Customer Name + Phone + Merged Count Badge -->
               <div class="flex items-center gap-2.5 min-w-0 flex-1">
                 <span class="px-2 py-0.5 rounded-md text-xs font-extrabold uppercase bg-white/25 text-white border border-white/40 font-mono-num shrink-0">
-                  #${orderIdx + 1} • ${totals.totalUnits} ${totals.totalUnits === 1 ? 'Qty' : 'Qty'}
+                  #${orderIdx + 1} • ${totals.totalUnits} Qty
                 </span>
+                ${
+                  totals.isBogoActive
+                    ? `<span class="px-1.5 py-0.5 rounded-md text-[11px] font-extrabold bg-amber-400 text-slate-900 border border-amber-300 shadow-2xs shrink-0">
+                        🎁 1+1 (-₹${totals.bogoDiscount})
+                      </span>`
+                    : ''
+                }
                 <div class="min-w-0 flex-1 flex flex-wrap items-baseline gap-x-2">
                   <span class="text-sm sm:text-base font-extrabold text-white truncate ${isDelivered ? 'line-through opacity-85' : ''}">
                     ${escapeHtml(customerDisplay)}
@@ -2420,7 +2741,7 @@
           </div>
 
           <!-- Item Boxes Grid + Save Box + Cash Given / Return Change Calculator Box -->
-          <div id="items-row-${order.id}" class="flex items-stretch flex-wrap gap-1.5">
+          <div id="items-row-${order.id}" class="flex items-start flex-wrap gap-1.5">
             ${itemsBoxesHTML}
 
             <!-- Save / Merge Button Box -->
