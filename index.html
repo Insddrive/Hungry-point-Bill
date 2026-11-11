@@ -1650,14 +1650,11 @@
       const theme = ORDER_THEMES[(order?.themeIndex || 0) % ORDER_THEMES.length];
 
       const boxEl = document.getElementById(`item-box-${item.id}`);
-      const topBarEl = document.getElementById(`item-top-bar-${item.id}`);
       const inputEl = document.getElementById(`item-input-${item.id}`);
       const rupeePrefixEl = document.getElementById(`rupee-prefix-${item.id}`);
       const lineTotalEl = document.getElementById(`item-line-total-${item.id}`);
       const bogoBtnEl = document.getElementById(`item-bogo-btn-${item.id}`);
       const qtyBadge = document.getElementById(`qty-badge-${item.id}`);
-      const qtyWrapperEl = document.getElementById(`qty-wrapper-${item.id}`);
-      const topControlsEl = document.getElementById(`top-controls-${item.id}`);
       const bottomBarEl = document.getElementById(`item-bottom-bar-${item.id}`);
       const bottomNameTextEl = document.getElementById(`item-bottom-name-${item.id}`);
       const bottomDdBadgeEl = document.getElementById(`item-bottom-dd-badge-${item.id}`);
@@ -1673,45 +1670,15 @@
       // Box is empty ONLY when no data is entered in it at all
       const isEmpty = rawAmtStr === '' && rawNameStr === '';
 
-      // Update Box width & padding dynamically: super compact (w-20 sm:w-24 p-1 self-start) when empty,
-      // expanding to (w-[48%] sm:w-48 p-1.5 self-start) ONLY when data is entered!
+      // Update Box width dynamically: Medium size (w-36 sm:w-40) when empty,
+      // expanding to wide (w-[48%] sm:w-52) ONLY when data is entered!
       if (boxEl) {
         if (isEmpty) {
-          boxEl.classList.remove('w-[48%]', 'sm:w-48', 'p-1.5');
-          boxEl.classList.add('w-20', 'sm:w-24', 'p-1', 'self-start');
+          boxEl.classList.remove('w-[48%]', 'sm:w-52', 'sm:w-48', 'w-20', 'sm:w-24', 'p-1');
+          boxEl.classList.add('w-36', 'sm:w-40', 'p-1.5', 'self-start');
         } else {
-          boxEl.classList.remove('w-20', 'sm:w-24', 'p-1');
-          boxEl.classList.add('w-[48%]', 'sm:w-48', 'p-1.5', 'self-start');
-        }
-      }
-
-      if (topBarEl) {
-        if (isEmpty) {
-          topBarEl.classList.remove('mb-1');
-          topBarEl.classList.add('mb-0.5');
-        } else {
-          topBarEl.classList.remove('mb-0.5');
-          topBarEl.classList.add('mb-1');
-        }
-      }
-
-      // Hide or show top tax & delete controls
-      if (topControlsEl) {
-        if (isEmpty) {
-          topControlsEl.classList.add('hidden');
-        } else {
-          topControlsEl.classList.remove('hidden');
-        }
-      }
-
-      // Hide or show Quantity controls
-      if (qtyWrapperEl) {
-        if (isEmpty) {
-          qtyWrapperEl.classList.add('hidden');
-          qtyWrapperEl.classList.remove('flex');
-        } else {
-          qtyWrapperEl.classList.remove('hidden');
-          qtyWrapperEl.classList.add('flex');
+          boxEl.classList.remove('w-36', 'sm:w-40', 'w-20', 'sm:w-24', 'p-1');
+          boxEl.classList.add('w-[48%]', 'sm:w-52', 'p-1.5', 'self-start');
         }
       }
 
@@ -1724,18 +1691,14 @@
       const inputIsNumericMode = currentInputVal === '' || isPureNumericInput(currentInputVal);
 
       if (rupeePrefixEl && inputEl) {
-        if (isEmpty) {
-          rupeePrefixEl.classList.add('hidden');
-          inputEl.className = `w-full px-1 py-0.5 rounded-md text-center text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-[10px] placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`;
-          inputEl.placeholder = '+ ₹/Item';
-        } else if (inputIsNumericMode) {
+        if (inputIsNumericMode) {
           rupeePrefixEl.classList.remove('hidden');
           inputEl.className = `w-full pl-5 pr-1.5 py-1 rounded-lg text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`;
-          inputEl.placeholder = '0 or Item...';
+          inputEl.placeholder = '0 or Item';
         } else {
           rupeePrefixEl.classList.add('hidden');
           inputEl.className = `w-full px-2 py-1 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`;
-          inputEl.placeholder = '0 or Item...';
+          inputEl.placeholder = '0 or Item';
         }
       }
 
@@ -2332,7 +2295,7 @@
       const hasName = rawNameStr.length > 0;
       const rateMatchesCount = getCatalogItemsByRate(item.amount).length;
 
-      // Box stays super-compact until data is actually typed/filled into it
+      // Box stays in a comfortable Medium size until data is typed/filled into it
       const isEmpty = rawAmtStr === '' && rawNameStr === '';
       const displayValue = hasValidAmount ? String(item.amount) : (hasName ? item.name : '');
       const isNumericMode = displayValue === '' || isPureNumericInput(displayValue);
@@ -2367,8 +2330,8 @@
         : 'px-1 py-0.5 text-[10px] font-bold font-mono-num text-slate-700 select-none';
 
       const boxSizeClass = isEmpty
-        ? 'w-20 sm:w-24 p-1 self-start'
-        : 'w-[48%] sm:w-48 p-1.5 self-start';
+        ? 'w-36 sm:w-40 p-1.5 self-start'
+        : 'w-[48%] sm:w-52 p-1.5 self-start';
 
       const bogoToggleBtnClass = (eligibleFreeQty > 0 && !isEmpty)
         ? `inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[10px] font-extrabold cursor-pointer transition select-none shrink-0 ${
@@ -2385,7 +2348,7 @@
           class="shrink-0 ${boxSizeClass} bg-white rounded-xl border-2 ${theme.boxBorder} shadow-2xs animate-pop flex flex-col cursor-text">
           
           <!-- Top Bar: # + BOGO Offer Toggle Button (right inside the pizza box where offer applies!) + Line Total + 5%/0% Toggle + Clear -->
-          <div id="item-top-bar-${item.id}" class="flex items-center justify-between gap-1 ${isEmpty ? 'mb-0.5' : 'mb-1'}">
+          <div id="item-top-bar-${item.id}" class="flex items-center justify-between gap-1 mb-1">
             <div class="flex items-center gap-1 min-w-0 flex-wrap">
               <span class="text-[10px] font-bold px-1 rounded ${theme.badge} shrink-0">#${indexNumber}</span>
               <button
@@ -2404,7 +2367,7 @@
                 ${lineTotalText}
               </span>
             </div>
-            <div id="top-controls-${item.id}" class="flex items-center gap-0.5 shrink-0 ${isEmpty ? 'hidden' : ''}">
+            <div id="top-controls-${item.id}" class="flex items-center gap-0.5 shrink-0">
               <button type="button"
                 tabindex="-1"
                 id="tax-btn-${item.id}"
@@ -2425,28 +2388,26 @@
           <!-- Vertically Centered Middle Row: Input & Qty -->
           <div class="flex-1 flex items-center gap-1 my-auto py-0.5">
             <div class="relative flex items-center flex-1 min-w-0">
-              <span id="rupee-prefix-${item.id}" class="${isNumericMode && !isEmpty ? '' : 'hidden'} absolute left-2 text-slate-500 font-bold text-xs select-none pointer-events-none">₹</span>
+              <span id="rupee-prefix-${item.id}" class="${isNumericMode ? '' : 'hidden'} absolute left-2 text-slate-500 font-bold text-xs select-none pointer-events-none">₹</span>
               <input
                 id="item-input-${item.id}"
                 type="text"
                 autocomplete="off"
-                placeholder="${isEmpty ? '+ ₹/Item' : '0 or Item...'}"
+                placeholder="0 or Item"
                 value="${escapeHtml(displayValue)}"
                 onfocus="handleSmartBoxFocus('${order.id}', '${item.id}')"
                 oninput="handleSmartBoxInput('${order.id}', '${item.id}', this.value)"
                 onkeydown="handleSmartBoxKeyDown(event, '${order.id}', '${item.id}')"
                 class="${
-                  isEmpty
-                    ? `w-full px-1 py-0.5 rounded-md text-center text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-[10px] placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
-                    : isNumericMode
-                      ? `w-full pl-5 pr-1.5 py-1 rounded-lg text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
-                      : `w-full px-2 py-1 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
+                  isNumericMode
+                    ? `w-full pl-5 pr-1.5 py-1 rounded-lg text-base font-bold text-slate-900 placeholder:text-slate-400 placeholder:text-xs placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
+                    : `w-full px-2 py-1 rounded-lg text-xs font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-medium focus:outline-none transition ${theme.inputOutline}`
                 }"
               />
             </div>
 
-            <!-- Quantity - / + Controls (Hidden when box is empty) -->
-            <div id="qty-wrapper-${item.id}" class="${isEmpty ? 'hidden' : 'flex'} items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5 shrink-0">
+            <!-- Quantity - / + Controls -->
+            <div id="qty-wrapper-${item.id}" class="flex items-center bg-slate-100 rounded-lg border border-slate-200 p-0.5 shrink-0">
               <button type="button"
                 tabindex="-1"
                 onclick="changeItemQty('${order.id}', '${item.id}', -1)"
